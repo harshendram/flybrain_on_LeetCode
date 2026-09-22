@@ -1,0 +1,31 @@
+[project]
+name = "leetfly"
+version = "0.1.0"
+description = "A real fruit-fly mushroom body (MaleCNS / FlyWire / hemibrain connectomes) that learns to judge LeetCode problems"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "pyarrow",
+    "scikit-learn",
+    "datasets",
+    "matplotlib",
+    "pyyaml",
+    "joblib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+skeletons = ["navis"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

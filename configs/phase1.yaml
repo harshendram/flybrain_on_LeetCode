@@ -1,0 +1,20 @@
+circuit: malecns_R
+min_syn: 5
+seed: 0
+nose_seed: 0
+task:
+  test_frac: 0.2
+  min_count: 60
+  n_folds: 3
+  seed: 0
+tune_metric: hit@1
+grid:
+  sigma_m: [[0, 0], [1.0, 0.0], [1.0, 0.05], [2.0, 0.05], [2.0, 0.1], [4.0, 0.05], [4.0, 0.1]]
+  sparsity: [0.025, 0.05, 0.1, 0.2]  # kept inside the biological range (APL keeps ~2-20% of KCs active)
+  eta: [4, 8, 16, 32, 64, 128, 256]
+  balanced: [true, false]
+lr_c: [0.01, 0.1, 1.0, 10.0]
+bootstrap: 1000
+n_nulls: 20
+n_noses: 20
+search_k: 10

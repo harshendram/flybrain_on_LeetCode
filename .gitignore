@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# downloaded + derived data (re-creatable with the download/extract scripts)
+data/raw/
+data/processed/
+results/cache/
+
+# web build
+web/node_modules/
+web/dist/
