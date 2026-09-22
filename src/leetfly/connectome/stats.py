@@ -6,7 +6,7 @@ from leetfly.connectome.extract_mb import MBCircuit
 
 
 def kc_class(kc_type: str) -> str:
-    if kc_type.startswith("KCa'b'"):
+    if kc_type.startswith(("KCa'b'", "KCapbp")):  # MaleCNS/hemibrain vs FlyWire spelling
         return "a'b'"
     if kc_type.startswith("KCab"):
         return "ab"

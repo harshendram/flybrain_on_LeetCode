@@ -33,13 +33,22 @@ export interface ModelMeta {
   arrays: Record<string, ArraySpec>;
 }
 
-export type VariantName = "real" | "scrambled";
+export type VariantName = string; // "real", "scrambled", and Phase-2 flies/noses such as "female:transplant"
 
-interface Variant {
+/** One fly with one nose: its wiring, homeostatic KC scales, and dopamine-trained output weights. */
+export interface VariantArrays {
   indptr: Uint32Array;
   indices: Uint16Array;
   data: Float32Array;
   kcScale: Float64Array;
+  wPlus: ArrayLike<number>;
+  wMinus: ArrayLike<number>;
+  perm: Uint16Array;
+  gain: Float64Array;
+}
+
+interface Variant extends VariantArrays {
+  nKc: number;
   wPlus: Float64Array; // (n_kc, C) row-major, mutable: "train your fly" edits these
   wMinus: Float64Array;
   wPlus0: Float64Array; // trained-on-LeetCode weights, for reset
@@ -104,7 +113,7 @@ export class Fly {
   private scale: Float64Array;
   readonly perm: Uint16Array;
   readonly gain: Float64Array;
-  private variants: Record<VariantName, Variant>;
+  private variants: Record<VariantName, Variant> = {};
   private poolStart: Uint32Array;
   private poolActive: Uint16Array;
 
@@ -121,25 +130,39 @@ export class Fly {
     this.scale = arrays["receptor_scale"] as Float64Array;
     this.perm = arrays["nose_perm"] as Uint16Array;
     this.gain = arrays["nose_gain"] as Float64Array;
-    const variant = (p: string): Variant => {
-      const wPlus0 = Float64Array.from(arrays[`${p}.w_plus`]);
-      const wMinus0 = Float64Array.from(arrays[`${p}.w_minus`]);
-      return {
+    for (const p of ["real", "scrambled"]) {
+      this.addVariant(p, {
         indptr: arrays[`${p}.w_indptr`] as Uint32Array,
         indices: arrays[`${p}.w_indices`] as Uint16Array,
         data: arrays[`${p}.w_data`] as Float32Array,
         kcScale: arrays[`${p}.kc_scale`] as Float64Array,
-        wPlus: wPlus0.slice(),
-        wMinus: wMinus0.slice(),
-        wPlus0,
-        wMinus0,
-      };
-    };
-    this.variants = { real: variant("real"), scrambled: variant("scrambled") };
+        wPlus: arrays[`${p}.w_plus`],
+        wMinus: arrays[`${p}.w_minus`],
+        perm: this.perm,
+        gain: this.gain,
+      });
+    }
     const counts = arrays["pool_counts"] as Uint16Array;
     this.poolStart = new Uint32Array(counts.length + 1);
     for (let i = 0; i < counts.length; i++) this.poolStart[i + 1] = this.poolStart[i] + counts[i];
     this.poolActive = arrays["pool_active"] as Uint16Array;
+  }
+
+  addVariant(name: VariantName, a: VariantArrays): void {
+    const wPlus0 = Float64Array.from(a.wPlus);
+    const wMinus0 = Float64Array.from(a.wMinus);
+    this.variants[name] = {
+      ...a,
+      nKc: a.kcScale.length,
+      wPlus: wPlus0.slice(),
+      wMinus: wMinus0.slice(),
+      wPlus0,
+      wMinus0,
+    };
+  }
+
+  hasVariant(name: VariantName): boolean {
+    return name in this.variants;
   }
 
   /** l2-normalized sublinear TF-IDF, as a sparse vector. */
@@ -181,15 +204,22 @@ export class Fly {
   }
 
   smell(title: string, description: string, which: VariantName = "real"): Smell {
-    const { K, C, nKc } = this;
-    const { sigma, m, k: nActive, n_exponent: n } = this.meta.config;
-    const receptors = this.receptors(problemText(title, description));
+    return this.smellReceptors(this.receptors(problemText(title, description)), which);
+  }
+
+  /** Everything after the receptors: each fly/nose variant turns the same receptor activity into its own smell. */
+  smellReceptors(receptors: Float64Array, which: VariantName): Smell {
+    const { K, C } = this;
+    const { sigma, m, sparsity, n_exponent: n } = this.meta.config;
+    const v = this.variants[which];
+    const nKc = v.nKc;
+    const nActive = Math.max(1, Math.round(sparsity * nKc));
 
     const glomeruli = new Float64Array(K);
-    for (let r = 0; r < K; r++) glomeruli[this.perm[r]] = receptors[r];
+    for (let r = 0; r < K; r++) glomeruli[v.perm[r]] = receptors[r];
     let total = 0;
     for (let g = 0; g < K; g++) {
-      glomeruli[g] *= this.gain[g];
+      glomeruli[g] *= v.gain[g];
       total += glomeruli[g];
     }
     const pn = new Float64Array(K);
@@ -200,7 +230,6 @@ export class Fly {
       pn[g] = xn / (sn + xn + lateral);
     }
 
-    const v = this.variants[which];
     const drive = new Float64Array(nKc);
     for (let j = 0; j < nKc; j++) {
       let s = 0;

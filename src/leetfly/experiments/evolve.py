@@ -82,8 +82,10 @@ def run_one(mb: str, kind: str, sample: int, seed: int, es: dict, replay_every: 
     return f"{name}: dev {best.fitness:.4f} test AUROC {result['test']['macro_auroc']:.4f} ({result['minutes']:.1f} min)"
 
 
-def main(config_path: str, jobs: int) -> None:
+def main(config_path: str, jobs: int, only_mbs: list[str] | None = None) -> None:
     conf = yaml.safe_load(open(config_path))
+    if only_mbs:
+        conf["mbs"] = [m for m in conf["mbs"] if m in only_mbs]
     runs = []
     for mb, seed in itertools.product(conf["mbs"], conf["seeds"]):
         runs.append((mb, "real", 0, seed))
@@ -101,5 +103,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default=str(paths.ROOT / "configs" / "evolve.yaml"))
     ap.add_argument("--jobs", type=int, default=14)
+    ap.add_argument("--mbs", nargs="*", help="subset of the configured mushroom bodies to run now")
     args = ap.parse_args()
-    main(args.config, args.jobs)
+    main(args.config, args.jobs, args.mbs)

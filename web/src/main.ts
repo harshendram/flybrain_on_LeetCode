@@ -2,7 +2,7 @@ import "./style.css";
 import { loadAll } from "./data";
 import examples from "./examples.json";
 import type { Fly, Smell, VariantName } from "./fly";
-import { FlyScene, ROLE_COLORS } from "./scene";
+import { Brain, FlyScene, ROLE_COLORS } from "./scene";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const fmtPct = (x: number) => `${(100 * x).toFixed(0)}%`;
@@ -20,7 +20,10 @@ async function main() {
   const { fly, skeletons } = await loadAll((loaded, total) => {
     barFill.style.width = `${Math.min(100, (100 * loaded) / Math.max(total, 1))}%`;
   });
-  const scene = new FlyScene($("stage"), skeletons, fly.C);
+  const scene = new FlyScene($("stage"));
+  const brain = new Brain(skeletons, fly.C, scene.now);
+  scene.add(brain, 0);
+  scene.focus([brain], true);
   $("loading").classList.add("done");
 
   const nPn = skeletons.meta.neurons.filter((n) => n.role === "PN").length;
@@ -34,7 +37,7 @@ async function main() {
     if (!title.trim() && !desc.trim()) return;
     const smell = fly.smell(title, desc, variant);
     current = { title, desc, smell };
-    scene.smell(smell.pn, smell.active, smell.scores);
+    brain.smell(smell.pn, smell.active, smell.scores);
     $("result").hidden = false;
     $("pipeline").innerHTML =
       `${fly.K} glomeruli → ${nPn} projection neurons → ${fly.nKc.toLocaleString()} Kenyon cells, ` +
@@ -81,7 +84,7 @@ async function main() {
     const s = current.smell;
     const guess = [...s.scores.keys()].sort((a, b) => s.scores[b] - s.scores[a] || a - b)[0];
     fly.reward(s.active, variant, guess, correct);
-    scene.dopamine(correct ? "PAM" : "PPL1");
+    brain.dopamine(correct ? "PAM" : "PPL1");
     const scores = fly.score(s.active, variant);
     current.smell = { ...s, scores };
     renderGuesses(scores);
@@ -127,7 +130,7 @@ async function main() {
   let resting = true;
   $("toggle-resting").addEventListener("click", () => {
     resting = !resting;
-    scene.setShowResting(resting);
+    for (const b of scene.brains) b.setShowResting(resting);
     $("toggle-resting").textContent = resting ? "Hide resting" : "Show resting";
   });
 
@@ -152,7 +155,7 @@ async function main() {
   $("legend").innerHTML = legend.map(([n, r]) => `<span style="--c:${ROLE_COLORS[r]}">${n}</span>`).join("");
 
   const tip = $("tooltip");
-  scene.onHoverGlomerulus = (g, x, y) => {
+  scene.onHoverGlomerulus = (_brain, g, x, y) => {
     if (g === null) {
       tip.hidden = true;
       return;

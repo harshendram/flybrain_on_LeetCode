@@ -23,11 +23,23 @@ def _to_csr(rows: list[dict[int, float]], n_cols: int) -> sparse.csr_matrix:
     return sparse.csr_matrix((v, (r, c)), shape=(len(rows), n_cols))
 
 
-def degree_preserving(w: sparse.csr_matrix, rng: np.random.Generator, trades_per_row: int = 20) -> sparse.csr_matrix:
+def degree_preserving(
+    w: sparse.csr_matrix, rng: np.random.Generator, trades_per_row: int = 20, groups: np.ndarray | None = None
+) -> sparse.csr_matrix:
+    """With `groups` (e.g. KC class per row), trades only happen within a group, so each group's coverage of every
+    glomerulus is preserved too (a stricter null)."""
     rows = _rows(sparse.csr_matrix(w))
     n = len(rows)
+    members = None
+    if groups is not None:
+        members = [np.flatnonzero(groups == g) for g in np.unique(groups)]
+        members = [m for m in members if len(m) >= 2]
+        weights = np.array([len(m) for m in members], dtype=float) / sum(len(m) for m in members)
     for _ in range(trades_per_row * n):
-        a, b = rng.choice(n, size=2, replace=False)
+        if members is None:
+            a, b = rng.choice(n, size=2, replace=False)
+        else:
+            a, b = rng.choice(members[rng.choice(len(members), p=weights)], size=2, replace=False)
         ra, rb = rows[a], rows[b]
         a_only = [(g, ra[g]) for g in ra if g not in rb]
         b_only = [(g, rb[g]) for g in rb if g not in ra]

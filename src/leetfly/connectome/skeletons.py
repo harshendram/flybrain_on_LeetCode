@@ -23,6 +23,36 @@ def read_swc(text: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return arr[:, 0].astype(np.int64), arr[:, 2:5], arr[:, 6].astype(np.int64)
 
 
+def read_precomputed(data: bytes, nm_to_um: bool = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Neuroglancer precomputed skeleton (FlyWire): uint32 n_vertices, n_edges, float32 xyz, uint32 edge pairs.
+    Edges are undirected, so the tree is re-rooted at vertex 0. Returns (ids, xyz, parent_ids) like read_swc."""
+    nv, ne = np.frombuffer(data, "<u4", 2)
+    xyz = np.frombuffer(data, "<f4", 3 * nv, 8).reshape(nv, 3).astype(np.float64)
+    edges = np.frombuffer(data, "<u4", 2 * ne, 8 + 12 * nv).reshape(ne, 2)
+    if nm_to_um:
+        xyz = xyz / 1000.0
+    adj: list[list[int]] = [[] for _ in range(nv)]
+    for a, b in edges:
+        adj[a].append(int(b))
+        adj[b].append(int(a))
+    parent = np.full(nv, -1, dtype=np.int64)
+    seen = np.zeros(nv, dtype=bool)
+    for root in range(nv):  # a skeleton can have several connected pieces
+        if seen[root]:
+            continue
+        seen[root] = True
+        stack = [root]
+        while stack:
+            u = stack.pop()
+            for v in adj[u]:
+                if not seen[v]:
+                    seen[v] = True
+                    parent[v] = u
+                    stack.append(v)
+    ids = np.arange(nv) + 1
+    return ids, xyz, np.where(parent >= 0, parent + 1, -1)
+
+
 def downsample(ids: np.ndarray, xyz: np.ndarray, parents: np.ndarray, step: float) -> tuple[np.ndarray, np.ndarray]:
     """Keep roots, branch points, leaves, and nodes every `step` microns of cable. Returns (xyz, local parents)."""
     index = {int(n): i for i, n in enumerate(ids)}
@@ -51,15 +81,21 @@ def downsample(ids: np.ndarray, xyz: np.ndarray, parents: np.ndarray, step: floa
     return xyz[order], out_par
 
 
-def fetch_swcs(url_template: str, body_ids: list[int], cache_dir: Path, workers: int = 16) -> dict[int, str]:
+def fetch_all(url_template: str, body_ids: list[int], cache_dir: Path, suffix: str, workers: int = 16) -> dict[int, bytes]:
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def get(bid: int) -> tuple[int, str]:
-        path = cache_dir / f"{bid}.swc"
+    def get(bid: int) -> tuple[int, bytes]:
+        path = cache_dir / f"{bid}{suffix}"
         if not path.exists():
-            with urllib.request.urlopen(url_template.format(body_id=bid), timeout=60) as r:
-                path.write_bytes(r.read())
-        return bid, path.read_text()
+            for attempt in range(4):
+                try:
+                    with urllib.request.urlopen(url_template.format(body_id=bid), timeout=60) as r:
+                        path.write_bytes(r.read())
+                    break
+                except OSError:
+                    if attempt == 3:
+                        raise
+        return bid, path.read_bytes()
 
     with ThreadPoolExecutor(workers) as pool:
         return dict(pool.map(get, body_ids))
