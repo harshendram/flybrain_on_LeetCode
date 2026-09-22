@@ -11,3 +11,7 @@ MALECNS_BASE = "https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-da
 MALECNS_ANNOTATIONS = RAW / "malecns" / "body-annotations-male-cns-v1.0-minconf-0.5.feather"
 MALECNS_WEIGHTS = RAW / "malecns" / "connectome-weights-male-cns-v1.0-minconf-0.5.feather"
 LEETCODE = RAW / "leetcode" / "leetcode_dataset.parquet"
+
+FLYWIRE_CONNECTIONS = RAW / "flywire" / "proofread_connections_783.feather"  # zenodo.org/records/10676866
+FLYWIRE_ANNOTATIONS = RAW / "flywire" / "neuron_annotations.tsv"  # github.com/flyconnectome/flywire_annotations
+HEMIBRAIN_DIR = RAW / "hemibrain" / "exported-traced-adjacencies-v1.2"

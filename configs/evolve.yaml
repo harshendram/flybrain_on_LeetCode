@@ -1,0 +1,12 @@
+# Phase 2a: nose evolution. Fixed before any evolution run (see README, pre-registration).
+mbs: [malecns_R, malecns_L, flywire_R, flywire_L, hemibrain_R]
+seeds: [0, 1, 2]
+null_samples: 2 # per null kind (dp = degree-preserving, uniform)
+replay_every: 5 # keep every 5th generation's best nose for the 3D replay
+es:
+  mu: 8
+  lam: 24
+  generations: 150
+  sigma0: 0.3
+  p_swap: 0.8
+  max_swaps: 3

@@ -9,15 +9,19 @@ import re
 
 _UPN = re.compile(r"^(?P<glom>(?:DA|DC|DL|DM|DP|VA|VC|VL|VM)\d+[a-z]*|D|V)_[a-z0-9]+PN\d*$")
 
-# Dataset-specific spellings mapped onto the MaleCNS / FlyWire names (extended in Phase 2 for hemibrain).
-ALIASES: dict[str, str] = {}
+# Hemibrain v1.2 names a few PN types differently from FlyWire / MaleCNS (which agree on all 51 glomeruli).
+# From FlyWire's own `hemibrain_type` cross-matching: hemibrain VC3l = VC3, VC3m = VC5, VC5_adPN = VM6_adPN,
+# and hemibrain VC5_lvPN corresponds to FlyWire CB3383, which is not a uniglomerular olfactory PN.
+HEMIBRAIN_TYPE_ALIASES: dict[str, str | None] = {
+    "VC3l_adPN": "VC3_adPN",
+    "VC3m_lvPN": "VC5_lvPN",
+    "VC5_adPN": "VM6_adPN",
+    "VC5_lvPN": None,
+}
 
 
 def glomerulus_of(cell_type: str | None) -> str | None:
     if not isinstance(cell_type, str):
         return None
     m = _UPN.match(cell_type.strip())
-    if m is None:
-        return None
-    g = m.group("glom")
-    return ALIASES.get(g, g)
+    return None if m is None else m.group("glom")

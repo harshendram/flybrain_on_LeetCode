@@ -14,7 +14,7 @@ import pyarrow.feather as feather
 from scipy import sparse
 
 from leetfly import paths
-from leetfly.connectome.glomeruli import glomerulus_of
+from leetfly.connectome.glomeruli import HEMIBRAIN_TYPE_ALIASES, glomerulus_of
 
 
 @dataclass
@@ -151,18 +151,71 @@ def build_circuit(
     )
 
 
-def extract_malecns(sides=("R", "L"), min_syn: int = 5) -> list[MBCircuit]:
-    ann = pd.read_feather(paths.MALECNS_ANNOTATIONS, columns=["bodyId", "type", "somaSide"])
-    ann["type"] = ann["type"].astype(object)
+def _pn_kc_ids(ann: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     pn_ids = ann.loc[ann["type"].map(glomerulus_of).notna(), "bodyId"].to_numpy()
     kc_ids = ann.loc[ann["type"].fillna("").str.startswith("KC"), "bodyId"].to_numpy()
-    edges = _edges_among(paths.MALECNS_WEIGHTS, pn_ids, kc_ids)
+    return pn_ids, kc_ids
+
+
+def _extract(prefix: str, ann: pd.DataFrame, edges: pd.DataFrame, sides, min_syn: int) -> list[MBCircuit]:
     out = []
     for side in sides:
-        c = build_circuit(f"malecns_{side}", ann, edges, side, min_syn)
+        c = build_circuit(f"{prefix}_{side}", ann, edges, side, min_syn)
         c.save(circuit_path(c.name, min_syn))
         out.append(c)
     return out
+
+
+def extract_malecns(sides=("R", "L"), min_syn: int = 5) -> list[MBCircuit]:
+    """Male #1: MaleCNS v1.0 (Janelia/Google/Cambridge 2026)."""
+    ann = pd.read_feather(paths.MALECNS_ANNOTATIONS, columns=["bodyId", "type", "somaSide"])
+    ann["type"] = ann["type"].astype(object)
+    pn_ids, kc_ids = _pn_kc_ids(ann)
+    return _extract("malecns", ann, _edges_among(paths.MALECNS_WEIGHTS, pn_ids, kc_ids), sides, min_syn)
+
+
+def extract_flywire(sides=("R", "L"), min_syn: int = 5) -> list[MBCircuit]:
+    """Female #1: FlyWire FAFB v783 (Dorkenwald et al. / Schlegel et al. 2024). Connections are per neuropil."""
+    raw = pd.read_csv(paths.FLYWIRE_ANNOTATIONS, sep="\t", usecols=["root_id", "cell_type", "side"], dtype=str)
+    ann = pd.DataFrame(
+        {
+            "bodyId": raw["root_id"].astype(np.int64),
+            "type": raw["cell_type"],
+            "somaSide": raw["side"].map({"right": "R", "left": "L"}),
+        }
+    )
+    pn_ids, kc_ids = _pn_kc_ids(ann)
+    table = feather.read_table(paths.FLYWIRE_CONNECTIONS, columns=["pre_pt_root_id", "post_pt_root_id", "syn_count"])
+    mask = pc.and_(
+        pc.is_in(table["pre_pt_root_id"], value_set=pc.cast(pn_ids, "int64")),
+        pc.is_in(table["post_pt_root_id"], value_set=pc.cast(kc_ids, "int64")),
+    )
+    per_neuropil = table.filter(mask).to_pandas()
+    edges = (
+        per_neuropil.groupby(["pre_pt_root_id", "post_pt_root_id"], as_index=False)["syn_count"].sum()
+        .rename(columns={"pre_pt_root_id": "body_pre", "post_pt_root_id": "body_post", "syn_count": "weight"})
+    )
+    return _extract("flywire", ann, edges, sides, min_syn)
+
+
+def extract_hemibrain(min_syn: int = 5) -> list[MBCircuit]:
+    """Female #2: hemibrain v1.2 (Scheffer et al. 2020). Only the right mushroom body is complete."""
+    raw = pd.read_csv(paths.HEMIBRAIN_DIR / "traced-neurons.csv", dtype={"type": str, "instance": str})
+    aliased = raw["type"].map(lambda t: HEMIBRAIN_TYPE_ALIASES.get(t, t) if isinstance(t, str) else None)
+    ann = pd.DataFrame(
+        {
+            "bodyId": raw["bodyId"].astype(np.int64),
+            "type": aliased,
+            "somaSide": raw["instance"].str.extract(r"_([LR])$", expand=False),
+        }
+    )
+    edges = pd.read_csv(paths.HEMIBRAIN_DIR / "traced-total-connections.csv").rename(
+        columns={"bodyId_pre": "body_pre", "bodyId_post": "body_post"}
+    )
+    return _extract("hemibrain", ann, edges, ("R",), min_syn)
+
+
+EXTRACTORS = {"malecns": extract_malecns, "flywire": extract_flywire, "hemibrain": extract_hemibrain}
 
 
 if __name__ == "__main__":
@@ -171,8 +224,10 @@ if __name__ == "__main__":
     from leetfly.connectome.stats import describe
 
     ap = argparse.ArgumentParser()
+    ap.add_argument("--dataset", choices=list(EXTRACTORS), nargs="+", default=["malecns"])
     ap.add_argument("--min-syn", type=int, nargs="+", default=[5])
     args = ap.parse_args()
-    for m in args.min_syn:
-        for circuit in extract_malecns(min_syn=m):
-            print(describe(circuit))
+    for dataset in args.dataset:
+        for m in args.min_syn:
+            for circuit in EXTRACTORS[dataset](min_syn=m):
+                print(describe(circuit))
