@@ -14,6 +14,7 @@ import argparse
 import itertools
 import json
 import pickle
+import platform
 import time
 import zlib
 
@@ -76,6 +77,7 @@ def run_one(mb: str, kind: str, sample: int, seed: int, es: dict, replay_every: 
             "best_gain": hist.best_gain[::replay_every],
         },
         "minutes": (time.time() - t0) / 60,
+        "host": platform.node(),
     }
     OUT.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result))
