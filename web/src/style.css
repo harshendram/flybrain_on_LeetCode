@@ -1,0 +1,486 @@
+/* One deliberate visual world: a dark-field microscope. Neuron colours follow the fluorescent reporters used to
+   image them (cyan Kenyon cells, amber projection neurons, green output neurons), so this page is dark-only. */
+:root {
+  --bg: #03040a;
+  --glass: rgba(10, 14, 28, 0.78);
+  --glass-strong: rgba(12, 16, 32, 0.94);
+  --line: rgba(140, 170, 255, 0.16);
+  --text: #e8ecf8;
+  --muted: #8e98b8;
+  --kc: #66f0ff;
+  --pn: #ffb35c;
+  --sugar: #ffd166;
+  --shock: #ff5c75;
+  --accent: #7cc4ff;
+  --focus: #9fe7ff;
+  --radius: 14px;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 var(--sans);
+  overflow: hidden;
+}
+
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+.val,
+.num,
+.pipeline {
+  font-variant-numeric: tabular-nums;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 7px 12px;
+}
+button:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.primary {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  border: 0;
+  background: linear-gradient(90deg, #2f7dff, #29d3ff);
+  color: #031018;
+}
+button.ghost {
+  background: transparent;
+}
+button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  font-size: 12px;
+}
+
+input,
+textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  resize: vertical;
+}
+textarea {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: calc(14px + var(--safe-top)) 18px 14px;
+  pointer-events: none;
+}
+.topbar > * {
+  pointer-events: auto;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.logo {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  background: linear-gradient(90deg, var(--pn), var(--kc));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tagline {
+  color: var(--muted);
+}
+.top-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.seg button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.seg button.on {
+  background: rgba(102, 240, 255, 0.16);
+  color: var(--kc);
+}
+
+.panel {
+  position: fixed;
+  top: calc(64px + var(--safe-top));
+  left: 16px;
+  bottom: calc(16px + var(--safe-bottom));
+  width: 380px;
+  overflow-y: auto;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.panel section + section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+h3 {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.muted {
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.chips button {
+  padding: 3px 9px;
+  font-size: 12px;
+  border-radius: 999px;
+  color: var(--muted);
+}
+
+.pipeline {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.pipeline b {
+  color: var(--kc);
+  font-weight: 600;
+}
+
+.guesses {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.guesses li {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+}
+.guesses .rank {
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.guesses .name {
+  position: relative;
+  padding: 5px 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.guesses .name i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(47, 125, 255, 0.45), rgba(41, 211, 255, 0.25));
+  z-index: -1;
+  transition: width 0.5s ease;
+}
+.guesses li:first-child .name {
+  font-weight: 700;
+}
+.guesses .val {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.guesses li.minor {
+  opacity: 0.6;
+  font-size: 12.5px;
+}
+
+.train {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--line);
+}
+.train p {
+  margin: 0 0 8px;
+}
+.train-buttons {
+  display: flex;
+  gap: 8px;
+}
+.train-buttons button {
+  flex: 1;
+}
+button.sugar {
+  border-color: rgba(255, 209, 102, 0.5);
+  color: var(--sugar);
+}
+button.shock {
+  border-color: rgba(255, 92, 117, 0.5);
+  color: var(--shock);
+}
+.train-note {
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 1em;
+  margin-top: 8px !important;
+}
+
+.similar {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.similar li {
+  margin: 6px 0;
+}
+.similar a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--muted);
+}
+.similar .tags {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.scorecard {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + var(--safe-bottom));
+  width: 330px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.scorecard h3 {
+  margin-top: 0;
+}
+.scorecard p {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+}
+.scorecard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.scorecard td {
+  padding: 3px 0;
+}
+.scorecard td.num {
+  text-align: right;
+  font-family: var(--mono);
+}
+.scorecard tr.fly td {
+  color: var(--kc);
+  font-weight: 700;
+}
+
+.legend {
+  position: fixed;
+  left: 412px;
+  bottom: calc(16px + var(--safe-bottom));
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.legend span::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  background: var(--c);
+  box-shadow: 0 0 8px var(--c);
+}
+
+.tooltip {
+  position: fixed;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--glass-strong);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  pointer-events: none;
+}
+.tooltip b {
+  color: var(--pn);
+}
+
+.loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  transition: opacity 0.6s ease;
+}
+.loading.done {
+  opacity: 0;
+  pointer-events: none;
+}
+.loading-inner {
+  text-align: center;
+  width: min(360px, 80vw);
+}
+.loading .logo {
+  font-size: 34px;
+}
+.bar {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+#bar-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--pn), var(--kc));
+  transition: width 0.2s;
+}
+
+dialog {
+  max-width: 620px;
+  color: var(--text);
+  background: var(--glass-strong);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+dialog p {
+  color: #c9d0e6;
+}
+.credits {
+  font-size: 12px;
+  color: var(--muted) !important;
+}
+
+/* on phones the scorecard is moved inside the panel (main.ts) and the brain gets the top half of the screen */
+.panel .scorecard {
+  position: static;
+  width: auto;
+  margin-top: 18px;
+  padding: 14px 0 0;
+  background: none;
+  backdrop-filter: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+@media (max-width: 820px) {
+  .tagline,
+  .legend,
+  #toggle-resting {
+    display: none;
+  }
+  .topbar {
+    padding: calc(12px + var(--safe-top)) 16px 12px;
+  }
+  .logo {
+    font-size: 19px;
+  }
+  .top-actions button {
+    padding: 6px 9px;
+    font-size: 13px;
+  }
+  .panel {
+    top: auto;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + var(--safe-bottom));
+    width: auto;
+    max-height: 46vh;
+    padding: 14px;
+  }
+}
