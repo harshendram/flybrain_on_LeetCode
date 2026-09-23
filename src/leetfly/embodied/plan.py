@@ -21,8 +21,10 @@ BODY_PITCH_DEG = -47.5  # flybody's hovering body angle (nose up)
 class Envelope:
     """Limits that keep our paths inside the real flights the controller learned from (set from the probe)."""
 
-    speed: float = 20.0  # cm/s cruising speed
-    max_speed: float = 35.0  # cm/s
+    # from the controller's own training flights (272 saccade/evasion clips): speed 5-95% 4-32 cm/s, median 12.9;
+    # yaw rate median 4.2 rad/s, 75% 8.5
+    speed: float = 15.0  # cm/s cruising speed
+    max_speed: float = 32.0  # cm/s
     max_yaw_rate: float = 8.0  # rad/s
     max_cast: float = 1.5  # cm lateral amplitude
     cast_hz: float = 2.0  # cast sweeps per second
@@ -68,17 +70,58 @@ def path_xy(start: np.ndarray, goal: np.ndarray, margin: float, env: Envelope = 
     return start + np.outer(s, u) + np.outer(lateral, v)
 
 
+def pursuit(start: np.ndarray, heading0: float, goal: np.ndarray, margin: float, env: Envelope = Envelope(),
+            dt: float = CONTROL_DT, overshoot: float = 0.2, max_s: float = 2.0) -> tuple[np.ndarray, np.ndarray]:
+    """A turn-rate-limited pursuit of the goal from the fly's *current* heading: what re-planning in flight needs
+    (a path that snaps toward a new bearing makes the controller crash). Casting is a heading oscillation around the
+    bearing, fading as the fly closes in. Returns positions (n, 2) and headings (n,)."""
+    pos = np.array(start, float)
+    goal = np.asarray(goal, float)
+    h = float(heading0)
+    length0 = max(float(np.linalg.norm(goal - pos)), 1e-9)
+    amp = cast_amplitude(margin, env) / env.max_cast * 0.9  # heading swing in radians (~52 degrees at most)
+    max_step = env.max_yaw_rate * dt
+    xy, hd = [pos.copy()], [h]
+    t, t_after = 0.0, None
+    while t < max_s:
+        d = goal - pos
+        dist = float(np.linalg.norm(d))
+        if t_after is None and dist < env.speed * dt:
+            t_after = t
+        if t_after is not None and t - t_after >= overshoot:
+            break
+        bearing = np.arctan2(d[1], d[0]) if t_after is None else h
+        taper = min(1.0, dist / length0) ** 1.2
+        want = bearing + amp * taper * np.sin(2 * np.pi * env.cast_hz * t)
+        dh = (want - h + np.pi) % (2 * np.pi) - np.pi
+        h += float(np.clip(dh, -max_step, max_step))
+        pos = pos + env.speed * dt * np.array([np.cos(h), np.sin(h)])
+        t += dt
+        xy.append(pos.copy())
+        hd.append(h)
+    return np.array(xy), np.array(hd)
+
+
+def yaw_of(quat: np.ndarray) -> float:
+    """Heading (rotation about z) of a (w, x, y, z) body quaternion, pitch notwithstanding."""
+    w, x, y, z = quat
+    return float(np.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+
+
 def reference(xy: np.ndarray, z: float, dt: float = CONTROL_DT, pitch_deg: float = BODY_PITCH_DEG,
-              env: Envelope = Envelope()) -> tuple[np.ndarray, np.ndarray]:
+              env: Envelope = Envelope(), heading: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Planar path -> flybody com_qpos (n, 7) and com_qvel (n, 6), with the body facing its direction of travel.
 
     The heading is smoothed so its rate never exceeds the envelope's yaw rate."""
     n = len(xy)
     vel = np.gradient(xy, dt, axis=0)
-    heading = np.unwrap(np.arctan2(vel[:, 1], vel[:, 0]))
-    max_step = env.max_yaw_rate * dt
-    for i in range(1, n):  # rate-limit the turn, as a real fly can't snap round
-        heading[i] = heading[i - 1] + np.clip(heading[i] - heading[i - 1], -max_step, max_step)
+    if heading is None:
+        heading = np.unwrap(np.arctan2(vel[:, 1], vel[:, 0]))
+        max_step = env.max_yaw_rate * dt
+        for i in range(1, n):  # rate-limit the turn, as a real fly can't snap round
+            heading[i] = heading[i - 1] + np.clip(heading[i] - heading[i - 1], -max_step, max_step)
+    else:
+        heading = np.unwrap(np.asarray(heading, float))
     half_p = np.deg2rad(pitch_deg) / 2
     q_pitch = np.array([np.cos(half_p), 0.0, np.sin(half_p), 0.0])
     q_yaw = np.stack([np.cos(heading / 2), np.zeros(n), np.zeros(n), np.sin(heading / 2)], axis=1)

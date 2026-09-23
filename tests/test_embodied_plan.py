@@ -18,7 +18,7 @@ def test_cast_amplitude_shrinks_with_margin_and_tapers_to_goal():
     lateral = np.abs(xy[:, 1])
     assert lateral.max() <= plan.Envelope().max_cast + 1e-9
     i = int(round(10 / plan.Envelope().speed / plan.CONTROL_DT))
-    assert lateral[i] < 1e-6  # casting has died out on arrival
+    assert lateral[i] < 1e-3  # casting has died out on arrival (within 10 um; i is rounded to a control step)
 
 
 def test_reference_stays_in_envelope_and_faces_travel():
@@ -45,3 +45,24 @@ def test_feeder_ring_and_reached():
     f, step = plan.reached(xy, feeders, radius=0.5)
     assert f == 3 and step > 0
     assert plan.reached(np.zeros((5, 2)), feeders, radius=0.5) == (-1, -1)
+
+
+def test_pursuit_turns_at_bounded_rate_from_a_wrong_heading_and_arrives():
+    env = plan.Envelope()
+    goal = np.array([0.0, 6.0])
+    xy, hd = plan.pursuit([0, 0], heading0=0.0, goal=goal, margin=1.0, env=env)  # starts 90 degrees off
+    assert np.linalg.norm(xy - goal, axis=1).min() < env.speed * plan.CONTROL_DT * 2
+    rate = np.abs(np.diff(hd)) / plan.CONTROL_DT
+    assert rate.max() <= env.max_yaw_rate + 1e-6
+    step = np.linalg.norm(np.diff(xy, axis=0), axis=1) / plan.CONTROL_DT
+    assert np.allclose(step, env.speed)
+
+
+def test_pursuit_casts_wider_when_unsure_and_reference_uses_given_heading():
+    goal = np.array([6.0, 0.0])
+    sure, _ = plan.pursuit([0, 0], 0.0, goal, margin=1.0)
+    unsure, hd = plan.pursuit([0, 0], 0.0, goal, margin=0.0)
+    assert np.abs(sure[:, 1]).max() < 1e-6 < np.abs(unsure[:, 1]).max()
+    assert len(unsure) > len(sure)  # sweeping costs time
+    qpos, _ = plan.reference(unsure, 0.74, heading=hd)
+    assert np.allclose([plan.yaw_of(q) for q in qpos[::500, 3:]], np.unwrap(hd)[::500] - 2 * np.pi * np.round(np.unwrap(hd)[::500] / (2 * np.pi)), atol=1e-6)

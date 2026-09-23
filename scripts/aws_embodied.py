@@ -24,7 +24,7 @@ from leetfly import paths
 REGION = "us-east-1"
 AMI_PARAM = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 FLYBODY = "flybody[tf] @ git+https://github.com/TuragaLab/flybody.git"
-EXTRA = "scipy==1.13.1 pandas==2.2.3 pyarrow==17.0.0 scikit-learn==1.5.2 pyyaml joblib tqdm h5py requests"
+EXTRA = "tensorflow-probability==0.16.0 scipy==1.13.1 pandas==2.2.3 pyarrow==17.0.0 scikit-learn==1.5.2 pyyaml joblib tqdm h5py requests"
 STATE = paths.RESULTS / "cache" / "aws_embodied_job.json"
 
 USER_DATA = """#!/bin/bash
@@ -44,6 +44,7 @@ nproc; lscpu | grep 'Model name'
 mkdir -p results/embodied
 ( while true; do sleep 240; tar czf /tmp/partial.tgz results/embodied /var/log/leetfly.log; curl -fsS -X PUT -T /tmp/partial.tgz '{partial}'; done ) &
 export PYTHONPATH=/opt/leetfly/src FLYBODY_DATA=/opt/leetfly/flybody-data TF_CPP_MIN_LOG_LEVEL=2
+export LD_LIBRARY_PATH="$(dirname $(readlink -f .venv/bin/python))/../lib:$LD_LIBRARY_PATH"
 .venv/bin/python -m {module} {args}
 tar czf /tmp/results.tgz results/embodied /var/log/leetfly.log
 curl -fsS -X PUT -T /tmp/results.tgz '{results}'

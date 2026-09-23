@@ -35,6 +35,8 @@ OUT = paths.RESULTS / "embodied"
 MB = "malecns_R"
 WIRINGS = {"real": ("real", 0), "dp": ("dp", 0), "uni": ("uni", 0)}
 CURVE_EVERY = 100
+KEEP_EVERY = 20  # keep the flown path of every 20th training problem's first flight (for the website replay)
+KEEP_TEST = 30
 
 
 def make_brain(wiring: str) -> tuple[OnlineBrain, object]:
@@ -52,15 +54,18 @@ def order_for(n: int, seed: int) -> np.ndarray:
 class PerfectBody:
     """Disembodied control: the fly always lands exactly where its mushroom body chose."""
 
-    def fly(self, choice, split: str, i: int) -> dict:
+    def fly(self, choice, split: str, i: int, keep_path: bool = False) -> dict:
         return {"reached": choice.goal}
 
 
-def run_stream(wiring: str, feedback: str, seed: int, body=None, log_every: int = 200) -> dict:
+def run_stream(wiring: str, feedback: str, seed: int, body=None, log_every: int = 200, limit_dev: int = 0,
+               limit_test: int = 0) -> dict:
     brain, task = make_brain(wiring)
     body = body or PerfectBody()
     y_dev = brain.y_dev
     order = order_for(len(y_dev), seed)
+    if limit_dev:
+        order = order[:limit_dev]
     curve, trials, t0 = [], [], time.time()
     first_right = 0
     for n, i in enumerate(order, 1):
@@ -73,7 +78,7 @@ def run_stream(wiring: str, feedback: str, seed: int, body=None, log_every: int 
             tried: set[int] = set()
             for attempt in range(MAX_TRIES):
                 choice = brain.choose(top, alive, tried)
-                flight = body.fly(choice, "dev", int(i))
+                flight = body.fly(choice, "dev", int(i), keep_path=(n % KEEP_EVERY == 0 and attempt == 0))
                 reached = flight["reached"]
                 tried.add(choice.goal)
                 ok = reached >= 0 and bool(y_dev[i, reached])
@@ -89,26 +94,27 @@ def run_stream(wiring: str, feedback: str, seed: int, body=None, log_every: int 
         if n % CURVE_EVERY == 0 or n == len(order):
             curve.append({"n": n, "test_top1": round(brain.test_top1(), 4)})
         if n % log_every == 0:
-            print(f"{wiring}/{feedback}/s{seed}: {n}/{len(order)} test top-1 {curve[-1]['test_top1']:.3f} "
-                  f"({(time.time() - t0) / 60:.1f} min)", flush=True)
+            top1 = f"test top-1 {curve[-1]['test_top1']:.3f} " if curve else ""
+            print(f"{wiring}/{feedback}/s{seed}: {n}/{len(order)} {top1}({(time.time() - t0) / 60:.1f} min)", flush=True)
     # test: one flight per future problem, frozen weights
     test_hits, test_trials = 0.0, []
-    for i in range(len(brain.y_test)):
+    n_test = limit_test or len(brain.y_test)
+    for i in range(n_test):
         top, alive = brain.code("test", i)
         choice = brain.choose(top, alive, set())
-        flight = body.fly(choice, "test", i) if feedback == "embodied" else {"reached": choice.goal}
+        flight = body.fly(choice, "test", i, keep_path=i < KEEP_TEST) if feedback == "embodied" else {"reached": choice.goal}
         reached = flight["reached"]
         ok = reached >= 0 and bool(brain.y_test[i, reached])
         test_hits += ok
         test_trials.append({"split": "test", "i": i, "goal": choice.goal, "margin": round(choice.margin, 4),
                             **{k: v for k, v in flight.items() if k != "reached"}, "reached": reached, "correct": ok})
     return {
-        "mb": MB, "wiring": wiring, "feedback": feedback, "seed": seed,
+        "mb": MB, "wiring": wiring, "feedback": feedback, "seed": seed, "limits": [limit_dev, limit_test],
         "test_top1_frozen": round(brain.test_top1(), 4),  # argmax of the learned weights, ties fractional
-        "test_first_landing": round(test_hits / len(brain.y_test), 4),  # where the fly actually landed first
+        "test_first_landing": round(test_hits / n_test, 4),  # where the fly actually landed first
         "train_first_try": round(first_right / len(order), 4),
         "curve": curve,
-        "trials": trials + test_trials,
+        "trials": trials + test_trials if feedback == "embodied" else [],  # per-flight logs only matter with a body
         "minutes": round((time.time() - t0) / 60, 2),
         "host": platform.node(),
     }
@@ -116,15 +122,21 @@ def run_stream(wiring: str, feedback: str, seed: int, body=None, log_every: int 
 
 def save(result: dict) -> Path:
     OUT.mkdir(parents=True, exist_ok=True)
-    path = OUT / f"{result['mb']}__{result['wiring']}__{result['feedback']}__s{result['seed']}.json"
+    tag = "__smoke" if any(result.get("limits", [0, 0])) else ""
+    path = OUT / f"{result['mb']}__{result['wiring']}__{result['feedback']}__s{result['seed']}{tag}.json"
     path.write_text(json.dumps(result))
     return path
 
 
-def main(feedbacks: list[str], wirings: list[str], seeds: list[int], jobs: int) -> None:
+def main(feedbacks: list[str], wirings: list[str], seeds: list[int], jobs: int, limit_dev: int = 0, limit_test: int = 0) -> None:
+    tag = "__smoke" if (limit_dev or limit_test) else ""
     runs = [r for r in itertools.product(wirings, feedbacks, seeds)
-            if not (OUT / f"{MB}__{r[0]}__{r[1]}__s{r[2]}.json").exists()]
+            if not (OUT / f"{MB}__{r[0]}__{r[1]}__s{r[2]}{tag}.json").exists()]
     print(f"{len(runs)} streams to run", flush=True)
+    if "embodied" in feedbacks:
+        from leetfly.embodied import body as body_mod
+
+        body_mod.download()  # unpack once, before the workers start
 
     def one(w, fb, s):
         body = None
@@ -132,7 +144,7 @@ def main(feedbacks: list[str], wirings: list[str], seeds: list[int], jobs: int) 
             from leetfly.embodied.physics import PhysicsBody
 
             body = PhysicsBody(seed=s)
-        r = run_stream(w, fb, s, body)
+        r = run_stream(w, fb, s, body, log_every=20 if limit_dev else 200, limit_dev=limit_dev, limit_test=limit_test)
         save(r)
         return f"{w}/{fb}/s{s}: test first landing {r['test_first_landing']:.3f}, frozen top-1 {r['test_top1_frozen']:.3f} ({r['minutes']} min)"
 
@@ -152,5 +164,7 @@ if __name__ == "__main__":
     ap.add_argument("--wirings", nargs="+", default=list(WIRINGS))
     ap.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2])
     ap.add_argument("--jobs", type=int, default=1)
+    ap.add_argument("--limit-dev", type=int, default=0)
+    ap.add_argument("--limit-test", type=int, default=0)
     a = ap.parse_args()
-    main(a.feedback, a.wirings, a.seeds, a.jobs)
+    main(a.feedback, a.wirings, a.seeds, a.jobs, a.limit_dev, a.limit_test)
