@@ -4,15 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>LeetFly Brain</title>
+    <meta
+      name="description"
+      content="A real fruit-fly brain, wired neuron by neuron from the MaleCNS connectome, learns which algorithm a LeetCode problem needs. Watch its 141,781 neurons spark while it learns."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="LeetFly: a real fruit-fly brain learns LeetCode" />
+    <meta
+      property="og:description"
+      content="141,781 real neurons. Watch a fly's learning centre spark with dopamine as it learns to spot algorithms, then watch a 3D fruit fly fly to the technique it smells."
+    />
+    <meta property="og:image" content="%SITE_URL%og-brain.png" />
+    <meta property="og:url" content="%SITE_URL%" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="%SITE_URL%og-brain.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap"
-    />
-    <meta
-      name="description"
-      content="A real fruit-fly brain circuit, wired from the MaleCNS connectome, learns to recognise which algorithm a LeetCode problem needs."
     />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%2303040a' stroke='%2366f0ff' stroke-width='8'/><circle cx='50' cy='50' r='12' fill='%23ffb35c'/></svg>" />
   </head>
@@ -22,13 +32,14 @@
     <header class="topbar">
       <div class="brand">
         <span class="logo">LeetFly</span>
-        <span class="tagline">a real fly brain circuit learns to spot algorithms</span>
+        <span class="tagline">a real fly brain learns to spot algorithms</span>
       </div>
       <div class="top-actions">
-        <div class="seg" role="group" aria-label="Mode" id="modes" hidden>
+        <div class="seg" role="group" aria-label="Mode" id="modes">
           <button data-mode="smell" class="on">Smell</button>
-          <button data-mode="evolve">Evolve a nose</button>
-          <button data-mode="transplant">Nose transplant</button>
+          <button data-mode="learn" disabled title="Loading…">Watch it learn</button>
+          <button data-mode="evolve" disabled title="Loading…">Evolve a nose</button>
+          <button data-mode="transplant" disabled title="Loading…">Nose transplant</button>
         </div>
         <div class="seg" role="group" aria-label="Wiring" id="wiring">
           <button id="wire-real" class="on" title="The fly's measured wiring from the MaleCNS connectome">Real wiring</button>
@@ -36,10 +47,35 @@
         </div>
         <button id="toggle-resting" class="ghost" title="Show or hide neurons that are not firing">Hide resting</button>
         <button id="about-open" class="ghost">About</button>
+        <a class="to-fly" href="./fly.html">See the fly fly →</a>
       </div>
     </header>
 
+    <div class="counters mono" id="counters"></div>
+
     <aside class="panel" id="panel">
+      <section id="mode-learn" hidden>
+        <h2>Watch it learn LeetCode</h2>
+        <p class="lede">
+          The fly starts naive, with every output synapse at full strength. Problems from LeetCode's history stream
+          in, oldest first. Each one makes its Kenyon cells fire; then dopamine rewards the compartments of its true
+          techniques and punishes the rest. That is the fly's only way to learn.
+        </p>
+        <div class="replay">
+          <button id="learn-play" class="primary slim">Play</button>
+          <div class="seg" role="group" aria-label="Speed" id="learn-speed">
+            <button data-speed="2">1×</button>
+            <button data-speed="10" class="on">10×</button>
+            <button data-speed="100">100×</button>
+          </div>
+          <button id="learn-reset" class="link">Reset</button>
+        </div>
+        <p class="mono" id="learn-progress"></p>
+        <div class="now-learning" id="learn-now"></div>
+        <svg id="learn-curve" class="curve" role="img" aria-label="Accuracy on future problems as the fly learns"></svg>
+        <p class="note" id="learn-note"></p>
+      </section>
+
       <section id="mode-evolve" hidden>
         <h2>Evolve a nose for algorithms</h2>
         <p class="lede">
@@ -111,12 +147,14 @@
     </aside>
 
     <div class="legend" id="legend"></div>
+    <div class="scalebar" id="scalebar"><div class="bar-line"></div><span class="bar-label mono"></span></div>
+    <canvas class="raster" id="raster" aria-label="Spike raster: every spike of the circuit over the last four seconds"></canvas>
     <div class="tooltip" id="tooltip" hidden></div>
 
     <div class="loading" id="loading">
       <div class="loading-inner">
         <div class="logo">LeetFly</div>
-        <p>Loading 2,208 neurons of a real fruit-fly brain…</p>
+        <p>Loading 141,781 neurons of a real fruit-fly brain…</p>
         <div class="bar"><div id="bar-fill"></div></div>
       </div>
     </div>
@@ -124,9 +162,11 @@
     <dialog id="about">
       <h2>What am I looking at?</h2>
       <p>
-        These are the real shapes of the <b>2,208 neurons</b> of the right mushroom body of a male fruit fly: its
-        centre for learning smells. They come from the <b>MaleCNS v1.0 connectome</b>, the complete wiring
-        diagram of a fly's nervous system traced from electron microscopy (Janelia, Google &amp; Cambridge, 2026).
+        Every dot is one of the <b>141,781 neurons</b> of a real male fruit fly, at the position of its cell body,
+        from the <b>MaleCNS v1.0 connectome</b>: the complete wiring diagram of a fly's nervous system traced from
+        electron microscopy (Janelia, Google &amp; Cambridge, 2026). Inside glow the real shapes of the <b>2,208
+        neurons</b> of its right mushroom body, its centre for learning smells. Each spike travels along the real
+        branches of the neuron that fires it.
       </p>
       <p>
         The fly has no idea what code is. We turn a problem's text into a <b>smell</b>: 51 "receptors" (word-topic
@@ -141,16 +181,16 @@
         time (always guessing "Dynamic Programming" gets 31%). That's the same as a standard classifier given the same
         51-channel smell (39%), and below a classifier reading every word (46%). <b>Scrambling its wiring doesn't hurt</b>
         (40%): for an unnatural task like this, what matters is the architecture, not the fly's specific connections.
-        Which parts of the wiring <i>can</i> matter is the next experiment.
+        Which parts of the wiring <i>can</i> matter is the Evolve and Transplant experiment.
       </p>
       <p>
         <b>Can it write code?</b> No. This circuit makes one-step associations. It can't produce a sequence. It can
         only judge.
       </p>
       <p class="credits">
-        Connectome: MaleCNS v1.0 (CC-BY 4.0). Problem metadata: LeetCodeDataset (Apache-2.0); problem text is
-        never stored on this site. LeetCode is a trademark of LeetCode LLC; this project is not affiliated with it.
-        Similar-problem search follows Dasgupta, Stevens &amp; Navlakha (Science, 2017).
+        Connectome: MaleCNS v1.0 and FlyWire v783 (CC-BY 4.0). Problem metadata: LeetCodeDataset (Apache-2.0); problem
+        text is never stored on this site. LeetCode is a trademark of LeetCode LLC; this project is not affiliated
+        with it. Similar-problem search follows Dasgupta, Stevens &amp; Navlakha (Science, 2017).
       </p>
       <button id="about-close" class="primary">Back to the fly</button>
     </dialog>

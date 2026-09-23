@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>LeetFly Flight</title>
+    <meta
+      name="description"
+      content="A real 3D fruit fly (flybody, DeepMind + Janelia) smells a LeetCode problem and flies to the algorithm its mushroom body votes for. Right answers earn sugar, wrong ones a shock: it learns."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="LeetFly: a fruit fly flies to the algorithm it smells" />
+    <meta
+      property="og:description"
+      content="A real fruit-fly brain smells your LeetCode problem. The fly flies to the technique it votes for: surging when sure, zig-zagging when unsure. Sugar if right, a shock if wrong."
+    />
+    <meta property="og:image" content="%SITE_URL%og-fly.png" />
+    <meta property="og:url" content="%SITE_URL%fly.html" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="%SITE_URL%og-fly.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap"
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%2303040a' stroke='%23ffb35c' stroke-width='8'/><circle cx='50' cy='50' r='12' fill='%2366f0ff'/></svg>" />
+  </head>
+  <body class="fly-page">
+    <div id="stage"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">LeetFly</span>
+        <span class="tagline">a real fruit fly flies to the algorithm it smells</span>
+      </div>
+      <div class="top-actions">
+        <a class="ghost-link" href="./index.html">← Inside its brain</a>
+        <button id="about-open" class="ghost">About</button>
+      </div>
+    </header>
+
+    <aside class="panel" id="panel">
+      <section>
+        <h2>Give the fly a problem</h2>
+        <p class="lede">
+          Its mushroom body smells the problem and votes for a technique. It then flies there: straight when it's sure,
+          zig-zagging when it isn't.
+        </p>
+        <div class="chips" id="examples"></div>
+        <button id="real" class="primary">Draw a real LeetCode problem</button>
+        <details class="paste">
+          <summary>Paste your own</summary>
+          <input id="p-title" placeholder="Title (optional)" autocomplete="off" />
+          <textarea id="p-desc" rows="5" placeholder="Paste a problem statement…"></textarea>
+          <button id="release" class="ghost wide">Release the smell</button>
+        </details>
+      </section>
+      <section class="status-sec">
+        <div id="status" class="status"></div>
+        <div id="teach" class="train-buttons" hidden>
+          <button id="sugar" class="sugar">Right: sugar</button>
+          <button id="shock" class="shock">Wrong: shock</button>
+        </div>
+        <p id="score" class="score"></p>
+      </section>
+    </aside>
+
+    <div class="caption" id="caption" aria-live="polite"></div>
+
+    <figure class="braincam">
+      <figcaption>Brain cam · <span class="muted">mushroom body, live</span></figcaption>
+      <canvas id="braincam" aria-label="The fly's mushroom body: glomeruli, Kenyon cells and technique outputs"></canvas>
+    </figure>
+
+    <div class="loading" id="loading">
+      <div class="loading-inner">
+        <div class="logo">LeetFly</div>
+        <p>Waking up a fruit fly…</p>
+        <div class="bar"><div id="bar-fill"></div></div>
+      </div>
+    </div>
+
+    <dialog id="about">
+      <h2>What am I watching?</h2>
+      <p>
+        The fly is <b>flybody</b>, the anatomically detailed fruit-fly model built by Google DeepMind and HHMI Janelia
+        (Vaxenburg et al., <i>Nature</i> 2025), here decimated for the browser. Its choices come from a model of its
+        real <b>mushroom body</b>, wired neuron by neuron from the MaleCNS connectome, the same one you can watch learn
+        on the <a href="./index.html">brain page</a>.
+      </p>
+      <p>
+        A mushroom body's job in a real fly is to decide <b>approach or avoid</b> for a smell it has learned about.
+        Here each feeder is labelled with an algorithm technique, and the fly approaches the one its output neurons
+        vote for. <b>The decision is the model's; the flight only shows it.</b> Its zig-zag width comes from the margin
+        between its top two votes, echoing how real flies cast across an odour plume when they lose the scent.
+      </p>
+      <p>
+        A right answer earns sugar (reward dopamine, PAM); a wrong one a shock (punishment dopamine, PPL1). Both
+        change the same synapses the brain page shows, so the fly learns as you play. Honest numbers: its top guess is
+        right about 40% of the time on problems it never saw (always guessing the most common technique gets 31%).
+      </p>
+      <p class="credits">
+        Fly model: flybody (Apache-2.0). Connectome: MaleCNS v1.0 (CC-BY 4.0). Problem metadata: LeetCodeDataset
+        (Apache-2.0); problem text is never stored on this site. Not affiliated with LeetCode.
+      </p>
+      <button id="about-close" class="primary">Back to the fly</button>
+    </dialog>
+
+    <script type="module" src="/src/fly-page/main.ts"></script>
+  </body>
+</html>

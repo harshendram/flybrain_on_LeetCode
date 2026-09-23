@@ -4,11 +4,9 @@ import type { Phase2Meta, Skeletons } from "./data";
 import { decodeArrays, problemText, type Fly, type ModelMeta, type Smell } from "./fly";
 import { Brain, type FlyScene } from "./scene";
 
-// 14 technique hues, tuned to read on the dark stage
-export const TECH_COLORS = [
-  "#ff6b6b", "#ffa94d", "#ffd43b", "#94d82d", "#38d9a9", "#3bc9db", "#4dabf7",
-  "#748ffc", "#9775fa", "#da77f2", "#f783ac", "#e8c39e", "#adb5bd", "#63e6be",
-];
+import { TECH_COLORS } from "./colors";
+
+export { TECH_COLORS };
 
 export type FemaleNose = "born" | "evolved" | "transplant";
 

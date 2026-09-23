@@ -1,30 +1,35 @@
 import "./style.css";
-import { loadAll, loadPhase2 } from "./data";
+import { Progress, loadAll, loadLearning, loadPhase2 } from "./data";
 import examples from "./examples.json";
 import type { Fly, Smell, VariantName } from "./fly";
+import { Raster, scaleBar } from "./hud";
+import { LearnMode } from "./learn";
 import { Phase2, TECH_COLORS, renderCurve, type FemaleNose } from "./phase2";
 import { Brain, FlyScene, ROLE_COLORS } from "./scene";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const fmtPct = (x: number) => `${(100 * x).toFixed(0)}%`;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+const narrow = window.matchMedia("(max-width: 820px)");
+
+type Mode = "smell" | "learn" | "evolve" | "transplant";
 
 interface Current {
   title: string;
   desc: string;
   smell: Smell;
-  slug?: string;
 }
 
 async function main() {
   const barFill = $("bar-fill");
-  const { fly, skeletons } = await loadAll((loaded, total) => {
+  const { fly, skeletons, cloud } = await loadAll((loaded, total) => {
     barFill.style.width = `${Math.min(100, (100 * loaded) / Math.max(total, 1))}%`;
   });
   const scene = new FlyScene($("stage"));
   const brain = new Brain(skeletons, fly.C, scene.now);
+  brain.addCloud(cloud, narrow.matches ? 3 : 1);
   scene.add(brain, 0);
-  scene.focus([brain], true);
+  scene.intro(brain);
   $("loading").classList.add("done");
 
   const nPn = skeletons.meta.neurons.filter((n) => n.role === "PN").length;
@@ -32,6 +37,41 @@ async function main() {
   fly.perm.forEach((g, r) => (receptorOf[g] = r));
   let variant: VariantName = "real";
   let current: Current | null = null;
+  let mode: Mode = "smell";
+
+  // ---------- instrument layer: raster, counters, scale bar ----------
+  const raster = new Raster($<HTMLCanvasElement>("raster"));
+  const wire = (b: Brain) => (b.onSpike = (e) => b.group.visible && raster.push(e));
+  wire(brain);
+  let lastT = 0;
+  let lastHud = 0;
+  let learn: LearnMode | null = null;
+  let topTechnique = "";
+  scene.onFrame = (t) => {
+    const dt = Math.min(t - lastT, 0.1);
+    lastT = t;
+    if (mode === "learn") learn?.tick(t, dt);
+    const visible = scene.brains.filter((b) => b.group.visible);
+    const firing = visible.reduce((s, b) => s + b.firingKcs, 0);
+    const kcs = visible.reduce((s, b) => s + b.counts.KC, 0);
+    raster.readouts = {
+      PN: `${visible.reduce((s, b) => s + b.counts.PN, 0)} projection neurons`,
+      KC: `${firing} / ${kcs.toLocaleString()} firing (${((100 * firing) / Math.max(kcs, 1)).toFixed(1)}%)`,
+      OUT: topTechnique ? `top: ${topTechnique}` : "14 technique outputs",
+      DA: "PAM reward · PPL1 punish",
+    };
+    raster.draw(t);
+    if (t - lastHud > 0.25) {
+      lastHud = t;
+      scaleBar($("scalebar"), scene.pixelsPerMicron());
+      const neurons = visible.reduce((s, b) => s + (b.cloud ? cloudCount(b) : 0), 0);
+      $("counters").innerHTML =
+        `<b>${neurons.toLocaleString()}</b> real neurons · <b>${visible.reduce((s, b) => s + b.counts.all, 0).toLocaleString()}</b> ` +
+        `in the learning circuit · <b>${firing}</b> Kenyon cells firing`;
+    }
+  };
+  const cloudCounts = new Map<Brain, number>([[brain, cloud.meta.n]]);
+  const cloudCount = (b: Brain) => cloudCounts.get(b) ?? 0;
 
   // ---------- smelling ----------
   function run(title: string, desc: string) {
@@ -39,7 +79,8 @@ async function main() {
     const smell = fly.smell(title, desc, variant);
     current = { title, desc, smell };
     brain.smell(smell.pn, smell.active, smell.scores);
-    $("result").hidden = false;
+    topTechnique = fly.meta.techniques[smell.ranking[0]];
+    $("result").hidden = mode !== "smell";
     $("pipeline").innerHTML =
       `${fly.K} glomeruli → ${nPn} projection neurons → ${fly.nKc.toLocaleString()} Kenyon cells, ` +
       `<b>${smell.active.length} firing</b> (APL keeps ${((100 * smell.active.length) / fly.nKc).toFixed(1)}%) → ` +
@@ -48,7 +89,6 @@ async function main() {
     renderGuesses(smell.scores);
     renderSimilar(smell);
     $("train-note").textContent = "";
-    $("result").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function renderGuesses(scores: Float64Array) {
@@ -118,7 +158,6 @@ async function main() {
     if (current) run(current.title, current.desc);
     $("train-note").textContent = "Training forgotten: back to what it learned from LeetCode.";
   });
-
   const setVariant = (v: VariantName) => {
     variant = v;
     $("wire-real").classList.toggle("on", v === "real");
@@ -134,14 +173,12 @@ async function main() {
     for (const b of scene.brains) b.setShowResting(resting);
     $("toggle-resting").textContent = resting ? "Hide resting" : "Show resting";
   });
-
   const about = $<HTMLDialogElement>("about");
   $("about-open").addEventListener("click", () => about.showModal());
   $("about-close").addEventListener("click", () => about.close());
 
   // ---------- static panels ----------
   renderScorecard(fly);
-  const narrow = window.matchMedia("(max-width: 820px)");
   const placeScorecard = () => (narrow.matches ? $("panel") : document.body).appendChild($("scorecard"));
   narrow.addEventListener("change", placeScorecard);
   placeScorecard();
@@ -153,7 +190,9 @@ async function main() {
     ["PAM (reward)", 3],
     ["PPL1 (punishment)", 4],
   ];
-  $("legend").innerHTML = legend.map(([n, r]) => `<span style="--c:${ROLE_COLORS[r]}">${n}</span>`).join("");
+  $("legend").innerHTML =
+    legend.map(([n, r]) => `<span style="--c:${ROLE_COLORS[r]}">${n}</span>`).join("") +
+    `<span style="--c:#8f7cff">Whole brain (one dot per neuron)</span>`;
 
   const tip = $("tooltip");
   scene.onHoverGlomerulus = (_brain, g, x, y) => {
@@ -172,58 +211,87 @@ async function main() {
     tip.hidden = false;
   };
 
+  // ---------- modes ----------
+  let p2: Phase2 | null = null;
+  const phase2Hooks = { enter: (_m: Mode) => {}, leave: () => {} };
+  const setMode = (m: Mode) => {
+    mode = m;
+    for (const b of $("modes").querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === m);
+    $("mode-smell").hidden = m !== "smell";
+    $("result").hidden = m !== "smell" || !current;
+    $("mode-learn").hidden = m !== "learn";
+    $("mode-evolve").hidden = m !== "evolve";
+    $("mode-transplant").hidden = m !== "transplant";
+    $("wiring").hidden = m !== "smell";
+    $("scorecard").hidden = m !== "smell";
+    if (m !== "learn" && learn?.playing) learn.toggle();
+    if (m === "evolve" || m === "transplant") phase2Hooks.enter(m);
+    else phase2Hooks.leave();
+    if (m === "smell" && current) run(current.title, current.desc);
+    if (m === "learn") topTechnique = "";
+  };
+  $("modes").addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest("button") as HTMLButtonElement | null;
+    if (b && !b.disabled && b.dataset.mode) setMode(b.dataset.mode as Mode);
+  });
+
   // start with an example so the brain is alive on arrival
   const first = examples[0];
   titleEl.value = first.title;
   descEl.value = first.description;
-  setTimeout(() => run(first.title, first.description), 700);
+  setTimeout(() => run(first.title, first.description), 2600);
 
-  // ---------- Phase 2 (evolve + transplant), loaded in the background ----------
-  const p2data = await loadPhase2(() => {}).catch((e) => (console.warn("phase 2 unavailable", e), null));
+  // ---------- background loads: learning stream, then Phase 2 ----------
+  const bg = new Progress();
+  loadLearning(bg)
+    .then((data) => {
+      learn = new LearnMode(fly, brain, data, fly.meta.problems, fly.meta.scores_on_future_problems["B0 frequency"]["hit@1"], {
+        progress: $("learn-progress"),
+        now: $("learn-now"),
+        curve: $<SVGSVGElement & HTMLElement>("learn-curve"),
+        note: $("learn-note"),
+        play: $("learn-play"),
+      });
+      $("learn-play").addEventListener("click", () => learn!.toggle());
+      $("learn-reset").addEventListener("click", () => learn!.reset());
+      $("learn-speed").addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest("button");
+        if (!b?.dataset.speed) return;
+        learn!.speed = Number(b.dataset.speed);
+        for (const x of $("learn-speed").querySelectorAll("button")) x.classList.toggle("on", x === b);
+      });
+      enableTab("learn");
+    })
+    .catch((e) => console.warn("learning data unavailable", e));
+
+  const p2data = await loadPhase2(bg).catch((e) => (console.warn("phase 2 unavailable", e), null));
   if (!p2data) return;
-  const p2 = new Phase2(fly, scene, brain, p2data.meta, p2data.bin, p2data.female);
-  setupPhase2(p2, fly, () => current, (m) => {
-    $("mode-smell").hidden = m !== "smell";
-    $("result").hidden = m !== "smell" || !current;
-    $("wiring").hidden = m !== "smell";
-    $("scorecard").hidden = m !== "smell";
-    if (m === "smell" && current) run(current.title, current.desc);
-  });
+  p2 = new Phase2(fly, scene, brain, p2data.meta, p2data.bin, p2data.female);
+  p2.female.addCloud(p2data.femaleCloud, narrow.matches ? 3 : 1);
+  cloudCounts.set(p2.female, p2data.femaleCloud.meta.n);
+  wire(p2.female);
+  const ph = setupPhase2(p2, fly);
+  phase2Hooks.enter = ph.enter;
+  phase2Hooks.leave = ph.leave;
+  enableTab("evolve");
+  enableTab("transplant");
 }
 
-type Mode = "smell" | "evolve" | "transplant";
+function enableTab(mode: Mode) {
+  const b = document.querySelector<HTMLButtonElement>(`#modes button[data-mode="${mode}"]`);
+  if (b) {
+    b.disabled = false;
+    b.title = "";
+  }
+}
 
-function setupPhase2(p2: Phase2, fly: Fly, _current: () => Current | null, onMode: (m: Mode) => void) {
+function setupPhase2(p2: Phase2, fly: Fly) {
   const meta = p2.meta;
   const sc = meta.scores;
   const pct = (x: number) => `${(100 * x).toFixed(1)}%`;
   let femaleNose: FemaleNose = "born";
   let timer: number | undefined;
   const last = p2.frames() - 1;
-
-  // --- mode tabs ---
-  $("modes").hidden = false;
-  const setMode = (m: Mode) => {
-    for (const b of $("modes").querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === m);
-    $("mode-evolve").hidden = m !== "evolve";
-    $("mode-transplant").hidden = m !== "transplant";
-    onMode(m);
-    if (m === "evolve") {
-      p2.enterEvolve();
-      showFrame(last);
-    } else if (m === "transplant") {
-      stop();
-      p2.enterTransplant(femaleNose);
-      renderTransplant();
-    } else {
-      stop();
-      p2.exit();
-    }
-  };
-  $("modes").addEventListener("click", (e) => {
-    const m = (e.target as HTMLElement).dataset.mode as Mode | undefined;
-    if (m) setMode(m);
-  });
 
   // --- evolve: replay ---
   const gen = $<HTMLInputElement>("gen");
@@ -312,6 +380,24 @@ function setupPhase2(p2: Phase2, fly: Fly, _current: () => Current | null, onMod
     const i = (e.target as HTMLElement).dataset.i;
     if (i !== undefined) smellBoth(examples[Number(i)].title, examples[Number(i)].description);
   });
+
+  return {
+    enter: (m: Mode) => {
+      if (m === "evolve") {
+        stop();
+        p2.enterEvolve();
+        showFrame(last);
+      } else {
+        stop();
+        p2.enterTransplant(femaleNose);
+        renderTransplant();
+      }
+    },
+    leave: () => {
+      stop();
+      p2.exit();
+    },
+  };
 }
 
 function summaryHtml(meta: import("./data").Phase2Meta): string {

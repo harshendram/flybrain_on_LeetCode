@@ -1,7 +1,18 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
-// relative base so the static build works from any GitHub Pages sub-path
+// Link previews (og:image / og:url) need absolute URLs. On Vercel the production domain is known at build time.
+const site = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/` : "./";
+const pages = ["index.html", "fly.html"].filter((p) => existsSync(resolve(__dirname, p)));
+
+// relative base so the static build works from any sub-path (Vercel, GitHub Pages, a claude.ai artifact)
 export default defineConfig({
   base: "./",
-  build: { target: "es2022", chunkSizeWarningLimit: 1500 },
+  build: {
+    target: "es2022",
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: { input: Object.fromEntries(pages.map((p) => [p.replace(".html", ""), resolve(__dirname, p)])) },
+  },
+  plugins: [{ name: "site-url", transformIndexHtml: (html) => html.replaceAll("%SITE_URL%", site) }],
 });

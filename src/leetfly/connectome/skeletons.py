@@ -1,8 +1,9 @@
 """Neuron skeletons for the 3D site: download SWCs, downsample, and pack them into a compact binary.
 
 Binary layout (little endian), described by a JSON manifest:
-  positions: uint16[3 * n_nodes]  (x, y, z) quantized as round((p - origin) * scale), p in microns (JRC2018U)
+  positions: uint16[3 * n_nodes]  (x, y, z) quantized as round((p - origin) * scale), p in microns
   parents:   uint16[n_nodes]      parent index local to its neuron, 65535 for the root
+  dist:      uint16[n_nodes]      (optional, manifest "dist_scale") cable distance from the soma, for spike pulses
 Neurons are stored back to back in manifest order.
 """
 
@@ -51,6 +52,45 @@ def read_precomputed(data: bytes, nm_to_um: bool = True) -> tuple[np.ndarray, np
                     stack.append(v)
     ids = np.arange(nv) + 1
     return ids, xyz, np.where(parent >= 0, parent + 1, -1)
+
+
+def reroot(ids: np.ndarray, xyz: np.ndarray, parents: np.ndarray, near: np.ndarray | None) -> np.ndarray:
+    """New parent ids with the tree rooted at the node closest to `near` (the soma), so spikes start there.
+    Other connected pieces keep a root of their own. Returns parents unchanged when `near` is None."""
+    if near is None:
+        return parents
+    index = {int(n): i for i, n in enumerate(ids)}
+    adj: list[list[int]] = [[] for _ in ids]
+    for i, p in enumerate(parents):
+        j = index.get(int(p), -1)
+        if j >= 0:
+            adj[i].append(j)
+            adj[j].append(i)
+    start = int(np.argmin(((xyz - near) ** 2).sum(axis=1)))
+    parent = np.full(len(ids), -1, dtype=np.int64)
+    seen = np.zeros(len(ids), dtype=bool)
+    for root in [start, *range(len(ids))]:
+        if seen[root]:
+            continue
+        seen[root] = True
+        stack = [root]
+        while stack:
+            u = stack.pop()
+            for v in adj[u]:
+                if not seen[v]:
+                    seen[v] = True
+                    parent[v] = u
+                    stack.append(v)
+    return np.where(parent >= 0, ids[np.maximum(parent, 0)], -1)
+
+
+def path_distance(xyz: np.ndarray, local_parents: np.ndarray) -> np.ndarray:
+    """Cable distance from the root for a downsampled tree (parents always precede their children)."""
+    dist = np.zeros(len(xyz))
+    for i, p in enumerate(local_parents):
+        if p != ROOT_PARENT:
+            dist[i] = dist[p] + float(np.linalg.norm(xyz[i] - xyz[p]))
+    return dist
 
 
 def prune_twigs(ids: np.ndarray, xyz: np.ndarray, parents: np.ndarray, min_length: float, passes: int = 2):
@@ -124,22 +164,31 @@ def fetch_all(url_template: str, body_ids: list[int], cache_dir: Path, suffix: s
         return dict(pool.map(get, body_ids))
 
 
+DIST_SCALE = 10.0  # dist stored in 0.1 micron steps (max 6.5 mm of cable)
+
+
 def pack(neurons: list[dict], out_bin: Path, out_json: Path, scale: float = 64.0, extra: dict | None = None) -> None:
-    """neurons: dicts with keys id, role, type, xyz (n,3), parents (n,), plus anything JSON-serialisable."""
+    """neurons: dicts with keys id, role, type, xyz (n,3), parents (n,), optional dist (n,), plus JSON fields."""
     all_xyz = np.concatenate([n["xyz"] for n in neurons])
     origin = np.floor(all_xyz.min(axis=0))
     q = np.round((all_xyz - origin) * scale)
     assert q.max() < 65535, "scene too large for uint16 quantization; lower the scale"
     parents = np.concatenate([n["parents"] for n in neurons])
+    has_dist = all("dist" in n for n in neurons)
     out_bin.parent.mkdir(parents=True, exist_ok=True)
     with open(out_bin, "wb") as f:
         f.write(q.astype("<u2").tobytes())
         f.write(parents.astype("<u2").tobytes())
+        if has_dist:
+            d = np.concatenate([n["dist"] for n in neurons])
+            f.write(np.clip(np.round(d * DIST_SCALE), 0, 65535).astype("<u2").tobytes())
     offset = 0
     manifest = []
     for n in neurons:
         count = len(n["xyz"])
-        manifest.append({k: v for k, v in n.items() if k not in ("xyz", "parents")} | {"offset": offset, "count": count})
+        manifest.append({k: v for k, v in n.items() if k not in ("xyz", "parents", "dist")} | {"offset": offset, "count": count})
         offset += count
-    meta = {"origin": origin.tolist(), "scale": scale, "n_nodes": int(offset), "neurons": manifest} | (extra or {})
-    out_json.write_text(json.dumps(meta, separators=(",", ":")))
+    meta = {"origin": origin.tolist(), "scale": scale, "n_nodes": int(offset), "neurons": manifest}
+    if has_dist:
+        meta["dist_scale"] = DIST_SCALE
+    out_json.write_text(json.dumps(meta | (extra or {}), separators=(",", ":")))

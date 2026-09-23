@@ -2,71 +2,120 @@
   {
     "title": "Ways Up the Staircase",
     "short": "staircase",
-    "description": "You are standing at the bottom of a staircase with n steps. In one move you may climb either 1 or 2 steps. Return the number of distinct ways to reach the top step. Because the answer can be very large, return it modulo 10^9 + 7.\n\nConstraints:\n1 <= n <= 10^5"
+    "description": "You are standing at the bottom of a staircase with n steps. In one move you may climb either 1 or 2 steps. Return the number of distinct ways to reach the top step. Because the answer can be very large, return it modulo 10^9 + 7.\n\nConstraints:\n1 <= n <= 10^5",
+    "techniques": [
+      "Dynamic Programming"
+    ]
   },
   {
     "title": "Longest Run After K Flips",
     "short": "k flips",
-    "description": "You are given a binary array nums and an integer k. You may flip at most k zeros into ones. Return the length of the longest contiguous subarray that contains only ones after your flips.\n\nConstraints:\n1 <= nums.length <= 10^5\n0 <= k <= nums.length"
+    "description": "You are given a binary array nums and an integer k. You may flip at most k zeros into ones. Return the length of the longest contiguous subarray that contains only ones after your flips.\n\nConstraints:\n1 <= nums.length <= 10^5\n0 <= k <= nums.length",
+    "techniques": [
+      "Sliding Window",
+      "Two Pointers"
+    ]
   },
   {
     "title": "Fewest Flights Between Airports",
     "short": "flights",
-    "description": "There are n airports numbered from 0 to n - 1. You are given a list of direct routes where routes[i] = [ai, bi] means there is a two-way flight between airport ai and airport bi. Return the minimum number of flights needed to travel from airport source to airport destination, or -1 if the destination cannot be reached.\n\nConstraints:\n1 <= n <= 2 * 10^4\n0 <= routes.length <= 5 * 10^4"
+    "description": "There are n airports numbered from 0 to n - 1. You are given a list of direct routes where routes[i] = [ai, bi] means there is a two-way flight between airport ai and airport bi. Return the minimum number of flights needed to travel from airport source to airport destination, or -1 if the destination cannot be reached.\n\nConstraints:\n1 <= n <= 2 * 10^4\n0 <= routes.length <= 5 * 10^4",
+    "techniques": [
+      "DFS / BFS",
+      "Graph"
+    ]
   },
   {
     "title": "Sum of the Deepest Leaves",
     "short": "deepest leaves",
-    "description": "Given the root of a binary tree, return the sum of the values of all nodes that are at the deepest level of the tree.\n\nConstraints:\nThe number of nodes in the tree is in the range [1, 10^4].\n1 <= Node.val <= 100"
+    "description": "Given the root of a binary tree, return the sum of the values of all nodes that are at the deepest level of the tree.\n\nConstraints:\nThe number of nodes in the tree is in the range [1, 10^4].\n1 <= Node.val <= 100",
+    "techniques": [
+      "Tree",
+      "DFS / BFS"
+    ]
   },
   {
     "title": "Smallest Truck That Delivers On Time",
     "short": "truck capacity",
-    "description": "Parcels on a conveyor must be shipped in the given order within d days. The i-th parcel has weight weights[i]. Each day the truck is loaded with consecutive parcels as long as the total weight does not exceed its capacity. Return the minimum capacity of the truck so that all parcels are shipped within d days.\n\nConstraints:\n1 <= d <= weights.length <= 5 * 10^4\n1 <= weights[i] <= 500"
+    "description": "Parcels on a conveyor must be shipped in the given order within d days. The i-th parcel has weight weights[i]. Each day the truck is loaded with consecutive parcels as long as the total weight does not exceed its capacity. Return the minimum capacity of the truck so that all parcels are shipped within d days.\n\nConstraints:\n1 <= d <= weights.length <= 5 * 10^4\n1 <= weights[i] <= 500",
+    "techniques": [
+      "Binary Search"
+    ]
   },
   {
     "title": "K Nearest Charging Stations",
     "short": "k nearest",
-    "description": "You are given a list of charging stations as points on a plane, where stations[i] = [xi, yi], and an integer k. Return the k stations that are closest to the origin (0, 0), using Euclidean distance. The answer may be returned in any order.\n\nConstraints:\n1 <= k <= stations.length <= 10^4"
+    "description": "You are given a list of charging stations as points on a plane, where stations[i] = [xi, yi], and an integer k. Return the k stations that are closest to the origin (0, 0), using Euclidean distance. The answer may be returned in any order.\n\nConstraints:\n1 <= k <= stations.length <= 10^4",
+    "techniques": [
+      "Heap"
+    ]
   },
   {
     "title": "Number of Friend Groups",
     "short": "friend groups",
-    "description": "There are n students in a school. You are given a list pairs where pairs[i] = [a, b] means student a and student b are friends. Friendship is transitive: a friend of a friend belongs to the same group. Return the number of separate friend groups.\n\nConstraints:\n1 <= n <= 10^5\n0 <= pairs.length <= 10^5"
+    "description": "There are n students in a school. You are given a list pairs where pairs[i] = [a, b] means student a and student b are friends. Friendship is transitive: a friend of a friend belongs to the same group. Return the number of separate friend groups.\n\nConstraints:\n1 <= n <= 10^5\n0 <= pairs.length <= 10^5",
+    "techniques": [
+      "Union Find",
+      "DFS / BFS",
+      "Graph"
+    ]
   },
   {
     "title": "Days Until a Higher Price",
     "short": "higher price",
-    "description": "Given an array prices where prices[i] is the price of a stock on day i, return an array wait such that wait[i] is the number of days you must wait after day i until the price is strictly higher. If there is no such future day, set wait[i] to 0.\n\nConstraints:\n1 <= prices.length <= 10^5"
+    "description": "Given an array prices where prices[i] is the price of a stock on day i, return an array wait such that wait[i] is the number of days you must wait after day i until the price is strictly higher. If there is no such future day, set wait[i] to 0.\n\nConstraints:\n1 <= prices.length <= 10^5",
+    "techniques": [
+      "Stack"
+    ]
   },
   {
     "title": "Every Team You Can Pick",
     "short": "all teams",
-    "description": "Given an array of distinct player ids and an integer k, return all possible teams of exactly k players. Each team is a combination, so the order inside a team does not matter. You may return the teams in any order.\n\nConstraints:\n1 <= players.length <= 20\n1 <= k <= players.length"
+    "description": "Given an array of distinct player ids and an integer k, return all possible teams of exactly k players. Each team is a combination, so the order inside a team does not matter. You may return the teams in any order.\n\nConstraints:\n1 <= players.length <= 20\n1 <= k <= players.length",
+    "techniques": [
+      "Backtracking"
+    ]
   },
   {
     "title": "Count Ones in Every Number",
     "short": "count ones",
-    "description": "Given an integer n, return an array ones of length n + 1 such that ones[i] is the number of 1 bits in the binary representation of i, for every 0 <= i <= n. Can you do it in a single pass without using any built-in popcount function?\n\nConstraints:\n0 <= n <= 10^5"
+    "description": "Given an integer n, return an array ones of length n + 1 such that ones[i] is the number of 1 bits in the binary representation of i, for every 0 <= i <= n. Can you do it in a single pass without using any built-in popcount function?\n\nConstraints:\n0 <= n <= 10^5",
+    "techniques": [
+      "Bit Manipulation",
+      "Dynamic Programming"
+    ]
   },
   {
     "title": "Pair With Target in a Sorted List",
     "short": "sorted pair",
-    "description": "You are given an array of integers numbers that is already sorted in non-decreasing order, and an integer target. Find two different positions whose values add up to target and return them. Use only constant extra space.\n\nConstraints:\n2 <= numbers.length <= 3 * 10^4\n-1000 <= numbers[i] <= 1000"
+    "description": "You are given an array of integers numbers that is already sorted in non-decreasing order, and an integer target. Find two different positions whose values add up to target and return them. Use only constant extra space.\n\nConstraints:\n2 <= numbers.length <= 3 * 10^4\n-1000 <= numbers[i] <= 1000",
+    "techniques": [
+      "Two Pointers",
+      "Binary Search"
+    ]
   },
   {
     "title": "Count Subarrays With Sum K",
     "short": "subarray sum",
-    "description": "Given an integer array nums and an integer k, return the total number of contiguous subarrays whose elements sum exactly to k.\n\nConstraints:\n1 <= nums.length <= 2 * 10^4\n-1000 <= nums[i] <= 1000\n-10^7 <= k <= 10^7"
+    "description": "Given an integer array nums and an integer k, return the total number of contiguous subarrays whose elements sum exactly to k.\n\nConstraints:\n1 <= nums.length <= 2 * 10^4\n-1000 <= nums[i] <= 1000\n-10^7 <= k <= 10^7",
+    "techniques": [
+      "Prefix Sum"
+    ]
   },
   {
     "title": "Fewest Darts to Pop All Balloons",
     "short": "darts",
-    "description": "Balloons are taped on a wall and each balloon covers a horizontal interval [start, end]. A dart thrown at position x pops every balloon whose interval contains x. Return the minimum number of darts needed to pop all the balloons.\n\nConstraints:\n1 <= balloons.length <= 10^5\n-2^31 <= start < end <= 2^31 - 1"
+    "description": "Balloons are taped on a wall and each balloon covers a horizontal interval [start, end]. A dart thrown at position x pops every balloon whose interval contains x. Return the minimum number of darts needed to pop all the balloons.\n\nConstraints:\n1 <= balloons.length <= 10^5\n-2^31 <= start < end <= 2^31 - 1",
+    "techniques": [
+      "Greedy"
+    ]
   },
   {
     "title": "Valid Bracket Sequence",
     "short": "brackets",
-    "description": "Given a string s made only of the characters '(', ')', '[', ']', '{' and '}', determine whether the brackets are balanced: every opening bracket must be closed by the same type of bracket and in the correct order.\n\nConstraints:\n1 <= s.length <= 10^4"
+    "description": "Given a string s made only of the characters '(', ')', '[', ']', '{' and '}', determine whether the brackets are balanced: every opening bracket must be closed by the same type of bracket and in the correct order.\n\nConstraints:\n1 <= s.length <= 10^4",
+    "techniques": [
+      "Stack"
+    ]
   }
 ]

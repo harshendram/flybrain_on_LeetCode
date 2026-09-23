@@ -278,6 +278,77 @@ export class Fly {
     v.wMinus.set(v.wMinus0);
   }
 
+  /** A copy of a fly (same wiring, nose and homeostasis) with its own output weights. */
+  cloneVariant(from: VariantName, to: VariantName): void {
+    const v = this.variants[from];
+    this.addVariant(to, { ...v, wPlus: v.wPlus0, wMinus: v.wMinus0 });
+  }
+
+  /** A naive fly: every KC -> MBON synapse back at 1, as before any dopamine. */
+  resetNaive(which: VariantName): void {
+    const v = this.variants[which];
+    v.wPlus.fill(1);
+    v.wMinus.fill(1);
+  }
+
+  /** Per-technique depression per coincident event, exactly as model/dopamine.py (balanced). */
+  static dopamineRates(classCounts: number[], n: number, eta: number): { dc: Float64Array; dnot: Float64Array } {
+    const dc = Float64Array.from(classCounts, (c) => 1 - Math.exp(-eta / Math.max(c, 1)));
+    const dnot = Float64Array.from(classCounts, (c) => 1 - Math.exp(-eta / Math.max(n - c, 1)));
+    return { dc, dnot };
+  }
+
+  /**
+   * One training problem: its techniques' reward DANs (PAM) depress the "avoid" synapses of the firing KCs, every
+   * other compartment's punishment DANs (PPL1) depress the "approach" ones. Padding (65535) in `active` is skipped.
+   */
+  learnStep(which: VariantName, active: ArrayLike<number>, techniqueBits: number, rates: { dc: Float64Array; dnot: Float64Array }): void {
+    const v = this.variants[which];
+    const C = this.C;
+    for (let i = 0; i < active.length; i++) {
+      const j = active[i];
+      if (j === 65535) continue;
+      for (let c = 0; c < C; c++) {
+        if (techniqueBits & (1 << c)) v.wMinus[j * C + c] *= 1 - rates.dc[c];
+        else v.wPlus[j * C + c] *= 1 - rates.dnot[c];
+      }
+    }
+  }
+
+  /** Top guess (technique index) for an explicit set of firing KCs (padding 65535 skipped). */
+  topGuess(which: VariantName, active: ArrayLike<number>): number {
+    const v = this.variants[which];
+    const C = this.C;
+    let best = 0;
+    let bestScore = -Infinity;
+    for (let c = 0; c < C; c++) {
+      let s = 0;
+      for (let i = 0; i < active.length; i++) {
+        const j = active[i];
+        if (j !== 65535) s += v.wPlus[j * C + c] - v.wMinus[j * C + c];
+      }
+      if (s > bestScore) (best = c), (bestScore = s);
+    }
+    return best;
+  }
+
+  /** Just the nose + antennal lobe: PN rates per glomerulus for a receptor pattern. */
+  pnRates(receptors: ArrayLike<number>, which: VariantName): Float64Array {
+    const { K } = this;
+    const { sigma, m, n_exponent: n } = this.meta.config;
+    const v = this.variants[which];
+    const x = new Float64Array(K);
+    for (let r = 0; r < K; r++) x[v.perm[r]] = receptors[r];
+    let total = 0;
+    for (let g = 0; g < K; g++) total += (x[g] *= v.gain[g]);
+    const lateral = Math.pow(m * total, n);
+    const sn = Math.pow(sigma, n);
+    return x.map((xg) => {
+      const xn = Math.pow(xg, n);
+      return xn / (sn + xn + lateral);
+    });
+  }
+
   /** FlyHash: the problems whose KC codes overlap most with this one (Jaccard). */
   similar(active: Int32Array, k = 5, exclude?: string): { problem: Problem; jaccard: number }[] {
     const mask = new Uint8Array(this.nKc);

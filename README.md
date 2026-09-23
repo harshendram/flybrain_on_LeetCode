@@ -5,7 +5,22 @@ problems. Phase 1 is a working demo. Phase 2 asks a question the 2026 connectome
 time: **which parts of a fly's brain wiring can evolution actually use?**
 
 - Demo (3D site, private claude.ai link for now): https://claude.ai/artifact/4MYq4Ws4pdKm1zisyPK74h
-- Local: `cd web && npm install && npm run dev`
+- Local: `cd web && npm install && npm run dev`, or deploy it yourself (see [Deploy on Vercel](#deploy-on-vercel))
+
+## The site
+
+- **Brain** (`index.html`). The male's whole central nervous system as a point cloud (141,781 real neurons at
+  their measured soma positions), with the 2,208-neuron learning circuit drawn from its real EM skeletons. Every
+  spike travels along the actual arbours, and a raster and counters show them live. Modes:
+  - **Smell**: any problem, including one you paste.
+  - **Watch it learn**: the naive fly learns all 1,658 training problems with the exact trial-by-trial dopamine
+    rule, and its accuracy on the 415 future problems climbs from 11% (chance) to 40%.
+  - **Evolve a nose** and **Nose transplant**: the Phase 2 results.
+- **Fly** (`fly.html`). The anatomically real *flybody* fly (legs, wings, proboscis) in an arena of 14 "technique"
+  feeders. A problem becomes an odour plume and the same mushroom body votes:
+  - a confident fly surges straight to its choice, and an unsure one casts (zig-zags) between its top two;
+  - on the right feeder it drinks sugar (PAM dopamine), on a wrong one it gets a shock (PPL1) and tries again;
+  - every visit updates its synapses.
 
 ## The fly
 
@@ -197,7 +212,11 @@ in-sample, so the idiosyncratic share is an upper bound.
 - FlyWire v783 (CC-BY 4.0 connectivity, Zenodo 10676866; annotations, Schlegel et al. 2024).
 - Hemibrain v1.2 (Scheffer et al. 2020).
 - LeetCodeDataset (Apache-2.0; problem text is used for training but never redistributed; the site ships only
-  titles, slugs and tags).
+  titles, slugs, tags and each problem's 51-number receptor vector).
+- flybody fly model (Apache-2.0), Vaxenburg et al., *Nature* 2025 (Google DeepMind + HHMI Janelia), decimated
+  for the web by `scripts/export_flybody.py`: bristles are rebuilt as cones; poses come from the model's joint
+  springrefs.
+- three.js (MIT).
 - LeetCode is a trademark of LeetCode LLC; not affiliated.
 
 ## Reproduce
@@ -208,6 +227,24 @@ python -m leetfly.connectome.download                                      # Mal
 python -m leetfly.connectome.extract_mb --dataset malecns hemibrain flywire  # (FlyWire/hemibrain files: see paths.py)
 python -m leetfly.experiments.phase1
 python scripts/export_skeletons.py && python scripts/export_web_model.py
+python scripts/export_brain_cloud.py && python scripts/export_learning.py  # whole-brain clouds, learn-mode data
+python scripts/export_flybody.py && (cd web && npx @gltf-transform/cli meshopt public/fly/flybody.glb public/fly/flybody.glb)
 python -m leetfly.experiments.evolve --jobs 14                             # Phase 2a
 pytest && (cd web && npm test)
 ```
+
+## Deploy on Vercel
+
+The site is static: Vite builds `web/` into `web/dist`, with all data under `web/public/`.
+
+1. On vercel.com, choose **Add New → Project** and import this GitHub repository.
+2. Set **Root Directory** to `web`. `web/vercel.json` supplies the rest:
+   - the Vite preset, `npm ci`, `npm run build` and the `dist` output;
+   - clean URLs, so `/fly` works;
+   - cache headers for the data.
+3. Deploy. Every push to `main` redeploys.
+
+Link previews use `web/public/og-brain.png` and `og-fly.png`. Vercel exposes the production domain at build time
+(`VERCEL_PROJECT_PRODUCTION_URL`), and `vite.config.ts` turns the `og:image` / `og:url` tags into absolute URLs
+with it. Other static hosts (GitHub Pages, Netlify) work with the same `dist` folder; there, previews fall back to
+relative URLs.
