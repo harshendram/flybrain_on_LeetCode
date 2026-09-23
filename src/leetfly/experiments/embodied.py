@@ -78,6 +78,7 @@ def main() -> None:
     emb = {k: v for k, v in runs.items() if k[1] == "embodied"}
     if emb:
         res["embodied"] = embodied_summary(runs, emb, rng)
+    res["bank"] = bank_summary()
 
     (paths.RESULTS / "phase3.json").write_text(json.dumps(res, indent=1))
     lines = [f"Phase 3 ({len(seeds)} confirmatory seeds)", ""]
@@ -92,42 +93,62 @@ def main() -> None:
 
 
 def embodied_summary(runs, emb, rng) -> dict:
+    """E1-E3 on the confirmatory seeds (flight counts for E1, test flights for E3), paired with bandit (E2)."""
     from scipy.stats import spearmanr
 
     out = {}
     for w in sorted({k[0] for k in emb}):
-        ss = sorted(k[2] for k in emb if k[0] == w)
-        trials = [t for s in ss for t in runs[(w, "embodied", s)]["trials"]]
-        flights = [t for t in trials if "t_arrive" in t or "reached" in t]
-        fidelity = np.mean([t["reached"] == t["goal"] for t in flights])
+        ss = sorted(k[2] for k in emb if k[0] == w and k[2] in CONFIRM)
+        if not ss:
+            continue
+        counts = [runs[(w, "embodied", s)]["flights"] for s in ss]
+        n = sum(c["n"] for c in counts)
+        fidelity = sum(c["reached_goal"] for c in counts) / n
         e_acc = acc(runs, w, "embodied", ss)
         b_acc = acc(runs, w, "bandit", ss)
-        first = [t for t in trials if t.get("t_arrive") is not None and t["split"] == "test"]
-        rho, ci = None, None
-        if len(first) > 10:
-            m = np.array([t["margin"] for t in first])
-            tt = np.array([t["t_arrive"] for t in first])
-            rho = float(spearmanr(m, tt).statistic)
-            bs = []
-            for _ in range(2000):
-                i = rng.integers(0, len(m), len(m))
-                bs.append(spearmanr(m[i], tt[i]).statistic)
-            ci = [round(float(np.percentile(bs, 2.5)), 4), round(float(np.percentile(bs, 97.5)), 4)]
+        d = e_acc - b_acc
+        first = [t for s in ss for t in runs[(w, "embodied", s)]["trials"] if t["split"] == "test" and t.get("t_arrive") is not None]
+        m = np.array([t["margin"] for t in first])
+        tt = np.array([t["t_arrive"] for t in first])
+        rho = float(spearmanr(m, tt).statistic)
+        bs = []
+        for _ in range(1000):
+            i = rng.integers(0, len(m), len(m))
+            bs.append(spearmanr(m[i], tt[i]).statistic)
+        ci = [round(float(np.percentile(bs, 2.5)), 4), round(float(np.percentile(bs, 97.5)), 4)]
         out[w] = {
-            "seeds": ss,
-            "flights": len(flights),
+            "seeds": len(ss),
+            "flights": n,
             "E1_fidelity": round(float(fidelity), 4),
             "E1_supported": bool(fidelity >= 0.9),
-            "embodied_acc": e_acc.round(4).tolist(),
-            "bandit_acc_same_seeds": b_acc.round(4).tolist(),
-            "E2_diff": round(float(e_acc.mean() - b_acc.mean()), 4),
-            "E2_supported": bool(abs(e_acc.mean() - b_acc.mean()) <= 0.03),
-            "E3_rho_margin_vs_time": None if rho is None else round(rho, 4),
+            "no_feeder": sum(c["no_feeder"] for c in counts),
+            "reached_other": sum(c["reached_other"] for c in counts),
+            "embodied_mean": round(float(e_acc.mean()), 4),
+            "bandit_mean_same_seeds": round(float(b_acc.mean()), 4),
+            "E2_diff": round(float(d.mean()), 4),
+            "E2_ci": boot_mean_ci(d, rng),
+            "E2_supported": bool(abs(d.mean()) <= 0.03),
+            "E3_rho_margin_vs_time": round(rho, 4),
             "E3_ci": ci,
-            "E3_supported": bool(ci is not None and ci[1] < 0),
-            "missed_flights": int(sum(t["reached"] < 0 for t in flights)),
+            "E3_supported": bool(ci[1] < 0),
         }
     return out
+
+
+def bank_summary() -> dict:
+    path = RUNS / "bank" / "flights.jsonl"
+    if not path.exists():
+        return {}
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    by = {}
+    for lv in sorted({r["level"] for r in rows}):
+        rs = [r for r in rows if r["level"] == lv]
+        ta = [r["t_arrive"] for r in rs if r["t_arrive"] is not None]
+        by[lv] = {"flights": len(rs), "reached_goal": round(np.mean([r["reached"] == r["feeder"] for r in rs]), 4),
+                  "crashed": sum(r["reached"] < 0 for r in rs),
+                  "t_arrive_median": round(float(np.median(ta)), 4) if ta else None,
+                  "track_err_mm": round(10 * float(np.mean([r["err_mean_cm"] for r in rs])), 3)}
+    return {"flights": len(rows), "by_cast_level": by}
 
 
 if __name__ == "__main__":

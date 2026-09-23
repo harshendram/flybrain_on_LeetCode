@@ -277,6 +277,31 @@ of 191 on uniform. Every crash was a margin ≈ 0 cast, with a ±52° heading sw
 After the fix, a re-smoke had 0 crashes in 103 flights (54 of them casts), and 100% reached the intended feeder. E1
 is therefore judged on this envelope. The smoke runs are not part of any analysis.
 
+### Amendment 2 (23 Sep 2026, before any embodied stream is scored): a flight bank, and 50 seeds
+
+**Why.** Flying every trial live made each embodied stream a sequential chain of about 3,500 MuJoCo flights (about
+9 s each), roughly 9 hours per stream even on 8 cores.
+
+**Why a bank is equivalent.** Every embodied flight starts from the same airborne state at the arena centre. So its
+physics depends only on:
+- the goal feeder;
+- the cast strength;
+- the random wing-beat phase.
+
+It never depends on what the brain has learned.
+
+**Changes.**
+- **Cast strength** is quantized to 11 levels (`plan.cast_level`, from full cast to surge). The planner itself uses
+  the quantized level, so live and banked flights are the same process.
+- **The bank.** A bank of real MuJoCo flights (14 feeders × 11 levels × 18 wing-phase seeds = 2,772,
+  `src/leetfly/embodied/bank.py`) is simulated once, in parallel.
+- **Streams.** Each embodied trial draws a flight with its goal and level from the bank (`run.BankBody`, seeded per
+  stream).
+- **Seeds.** The streams then take seconds, so the embodied condition uses the same **50 confirmatory seeds (3–52) ×
+  3 wirings** as full and bandit, instead of real and uni × 3 seeds.
+
+**Unchanged.** E1–E4 and their thresholds. E2 is paired with bandit on the same seeds.
+
 ### Pilot (already seen, exploratory only)
 
 Seeds 0–2, disembodied. Test first-landing accuracy:

@@ -46,9 +46,24 @@ def quat_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     )
 
 
+CAST_LEVELS = 11  # 0 = full cast ... 10 = surge
+
+
+def cast_level(margin: float) -> int:
+    """Top-2 margin (0..1, as on the website) -> one of 11 cast strengths. Margins >= 1/2.2 all surge. Quantizing
+    makes a flight depend only on (goal, level, wing phase), so the physics can be simulated ahead, in parallel."""
+    x = min(1.0, max(0.0, margin) * 2.2)
+    return int(round(x * (CAST_LEVELS - 1)))
+
+
 def cast_amplitude(margin: float, env: Envelope = Envelope()) -> float:
-    """Top-2 margin (0..1, as on the website) -> lateral cast amplitude: sure flies surge, unsure ones cast."""
-    return env.max_cast * (1.0 - min(1.0, max(0.0, margin) * 2.2))
+    """Sure flies surge, unsure ones cast: amplitude falls with the cast level."""
+    return env.max_cast * (1.0 - cast_level(margin) / (CAST_LEVELS - 1))
+
+
+def level_margin(level: int) -> float:
+    """A margin that maps to `level` (for simulating the bank)."""
+    return level / (CAST_LEVELS - 1) / 2.2
 
 
 def path_xy(start: np.ndarray, goal: np.ndarray, margin: float, env: Envelope = Envelope(),

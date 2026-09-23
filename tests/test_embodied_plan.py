@@ -76,3 +76,11 @@ def test_full_cast_stays_within_the_controllers_turn_rates():
     assert d[arrive] < 0.6
     rate = np.abs(np.diff(hd))[:arrive] / plan.CONTROL_DT
     assert rate.max() <= 2 * np.pi * env.cast_hz * env.cast_swing + 0.5  # ~4.2 rad/s, the training flights' median
+
+
+def test_cast_levels_round_trip_and_saturate():
+    assert plan.cast_level(0.0) == 0 and plan.cast_level(1.0) == plan.CAST_LEVELS - 1 == plan.cast_level(0.5)
+    for lv in range(plan.CAST_LEVELS):
+        assert plan.cast_level(plan.level_margin(lv)) == lv
+    amps = [plan.cast_amplitude(plan.level_margin(lv)) for lv in range(plan.CAST_LEVELS)]
+    assert amps == sorted(amps, reverse=True) and amps[-1] == 0

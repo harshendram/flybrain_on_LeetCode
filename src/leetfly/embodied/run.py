@@ -82,6 +82,31 @@ def order_for(n: int, seed: int) -> np.ndarray:
     return np.arange(n) if seed == 0 else np.random.default_rng(seed).permutation(n)
 
 
+BANK = OUT / "bank" / "flights.jsonl"
+
+
+class BankBody:
+    """Draws each landing from the bank of real MuJoCo flights (bank.py) with the same goal feeder and cast level.
+    Equivalent to flying it live, because every flight starts from the same state at the arena centre."""
+
+    def __init__(self, seed: int, path: Path = BANK):
+        from leetfly.embodied import plan
+
+        self.plan = plan
+        self.pool: dict[tuple[int, int], list[dict]] = {}
+        for k, line in enumerate(path.read_text().splitlines()):
+            r = json.loads(line)
+            flight = {"bank": k, "reached": r["reached"], "t_arrive": r["t_arrive"], "err_mean_cm": r["err_mean_cm"],
+                      "min_height_cm": r["min_height_cm"]}
+            self.pool.setdefault((r["feeder"], r["level"]), []).append(flight)
+        self.rng = np.random.default_rng(10_000 + seed)
+
+    def fly(self, choice, split: str, i: int, keep_path: bool = False) -> dict:
+        level = self.plan.cast_level(choice.margin)
+        pool = self.pool[(choice.goal, level)]
+        return dict(pool[int(self.rng.integers(len(pool)))], level=level)
+
+
 class PerfectBody:
     """Disembodied control: the fly always lands exactly where its mushroom body chose."""
 
@@ -145,9 +170,20 @@ def run_stream(wiring: str, feedback: str, seed: int, body=None, log_every: int 
         "test_first_landing": round(test_hits / n_test, 4),  # where the fly actually landed first
         "train_first_try": round(first_right / len(order), 4),
         "curve": curve,
-        "trials": trials + test_trials if feedback == "embodied" else [],  # per-flight logs only matter with a body
+        # per-flight logs only matter with a body; beyond the pilot seeds keep the test flights (E3) and counts (E1)
+        "trials": (trials + test_trials if seed < 3 else test_trials) if feedback == "embodied" else [],
+        "flights": flight_counts(trials + test_trials) if feedback == "embodied" else None,
         "minutes": round((time.time() - t0) / 60, 2),
         "host": platform.node(),
+    }
+
+
+def flight_counts(trials: list[dict]) -> dict:
+    return {
+        "n": len(trials),
+        "reached_goal": sum(t["reached"] == t["goal"] for t in trials),
+        "reached_other": sum(t["reached"] >= 0 and t["reached"] != t["goal"] for t in trials),
+        "no_feeder": sum(t["reached"] < 0 for t in trials),
     }
 
 
@@ -159,22 +195,25 @@ def save(result: dict) -> Path:
     return path
 
 
-def main(feedbacks: list[str], wirings: list[str], seeds: list[int], jobs: int, limit_dev: int = 0, limit_test: int = 0) -> None:
+def main(feedbacks: list[str], wirings: list[str], seeds: list[int], jobs: int, limit_dev: int = 0, limit_test: int = 0,
+         live: bool = False) -> None:
     tag = "__smoke" if (limit_dev or limit_test) else ""
     runs = [r for r in itertools.product(wirings, feedbacks, seeds)
             if not (OUT / f"{MB}__{r[0]}__{r[1]}__s{r[2]}{tag}.json").exists()]
     print(f"{len(runs)} streams to run", flush=True)
-    if "embodied" in feedbacks:
+    if "embodied" in feedbacks and live:
         from leetfly.embodied import body as body_mod
 
         body_mod.download()  # unpack once, before the workers start
 
     def one(w, fb, s):
         body = None
-        if fb == "embodied":
+        if fb == "embodied" and live:
             from leetfly.embodied.physics import PhysicsBody
 
             body = PhysicsBody(seed=s)
+        elif fb == "embodied":
+            body = BankBody(seed=s)
         r = run_stream(w, fb, s, body, log_every=20 if limit_dev else 200, limit_dev=limit_dev, limit_test=limit_test)
         save(r)
         return f"{w}/{fb}/s{s}: test first landing {r['test_first_landing']:.3f}, frozen top-1 {r['test_top1_frozen']:.3f} ({r['minutes']} min)"
@@ -197,5 +236,6 @@ if __name__ == "__main__":
     ap.add_argument("--jobs", type=int, default=1)
     ap.add_argument("--limit-dev", type=int, default=0)
     ap.add_argument("--limit-test", type=int, default=0)
+    ap.add_argument("--live", action="store_true", help="fly every trial in MuJoCo instead of drawing from the bank")
     a = ap.parse_args()
-    main(a.feedback, a.wirings, a.seeds, a.jobs, a.limit_dev, a.limit_test)
+    main(a.feedback, a.wirings, a.seeds, a.jobs, a.limit_dev, a.limit_test, a.live)

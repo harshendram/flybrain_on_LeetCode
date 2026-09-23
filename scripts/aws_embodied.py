@@ -47,7 +47,7 @@ uv pip install --python .venv/bin/python --no-deps --reinstall-package tensorflo
 .venv/bin/python -c "import tensorflow as tf, flybody, dm_control; print('tf', tf.__version__)"
 nproc; lscpu | grep 'Model name'
 mkdir -p results/embodied
-( while true; do sleep 240; tar czf /tmp/partial.tgz results/embodied /var/log/leetfly.log; curl -fsS -X PUT -T /tmp/partial.tgz '{partial}'; done ) &
+( while true; do sleep 120; tar czf /tmp/partial.tgz results/embodied /var/log/leetfly.log; curl -fsS -X PUT -T /tmp/partial.tgz '{partial}'; done ) &
 export PYTHONPATH=/opt/leetfly/src FLYBODY_DATA=/opt/leetfly/flybody-data TF_CPP_MIN_LOG_LEVEL=2
 export LD_LIBRARY_PATH="$(dirname $(readlink -f .venv/bin/python))/../lib:$LD_LIBRARY_PATH"
 .venv/bin/python -m {module} {args}
