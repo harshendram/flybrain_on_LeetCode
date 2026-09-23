@@ -137,3 +137,21 @@ Not done, and blocked on the coarser re-pack: browser check that the mushroom bo
   GPU only; the 64×64 spike texture is still circuit-only. `prefers-reduced-motion` freezes it.
 - Measured on the Iris Xe at 1440×900 in headless Chrome: learning brain 52 fps, evolve mode shows both flies
   (259,885 neurons), anatomy 60 fps, fly 60 fps.
+
+## 5. Phase 3 (branch `research/embodied`, merged 23 Sep 2026): the brain flies a physics fly
+
+- `src/leetfly/embodied/`:
+  - `brain.py`: online MB with bandit dopamine (one compartment per landing); full feedback equals the closed form.
+  - `plan.py`: turn-rate-limited pursuit, 11 quantized cast levels.
+  - `body.py`: flybody in MuJoCo with the pretrained flight policy, loaded without acme/reverb.
+  - `physics.py`: one flight from the centre to a 6 cm ring.
+  - `bank.py`: the parallel flight bank.
+  - `run.py`: streams, with PerfectBody / BankBody / live.
+- AWS runner: `scripts/aws_embodied.py` (Python 3.10 + TF 2.8; tfp-nightly removed; figshare zips shipped in the
+  payload; m7a.2xlarge for 8 workers).
+- Bank: 2,702 real flights in 68 min on 8 cores. 70 of 2,772 were lost when a partial download overwrote the final
+  one before the S3 copy was deleted.
+- Results (README "Phase 3 — results"): B1 −4.1 points (narrowly not supported); B2 not supported; E1 100%; E2 0.000;
+  E3 not measurable (all flights 0.36 s).
+- Web: fly page "Physics" mode (`web/src/fly-page/physics-replay.ts`), 19 real flights in
+  `web/public/data/embodied_flights.json` (`scripts/export_embodied.py`).

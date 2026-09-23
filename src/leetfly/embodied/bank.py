@@ -50,8 +50,11 @@ def fly_one(feeder: int, level: int, rep: int) -> dict:
 
 
 def profile() -> dict:
-    """Where does a flight's time go: the TF policy call or the physics step?"""
-    pb = _get_body()
+    """Where does a flight's time go: the TF policy call or the physics step? (A throwaway body: the parent process
+    must not hold one, or joblib tries to pickle TensorFlow objects along with the task.)"""
+    from leetfly.embodied.physics import PhysicsBody
+
+    pb = PhysicsBody(seed=0)
     ts = pb.env.reset()
     t0 = time.perf_counter()
     for _ in range(300):
@@ -68,13 +71,15 @@ def profile() -> dict:
 def main(jobs: int, repeats: int) -> None:
     from joblib import Parallel, delayed
 
+    from leetfly.embodied import bank as mod  # by module name: run as __main__, cloudpickle would ship globals by value
     from leetfly.embodied import body
 
     OUT.mkdir(parents=True, exist_ok=True)
     body.download()
     t0 = time.time()
-    prof = profile()
-    print("profile", prof, flush=True)
+    # measured on c7a/m7a (AMD EPYC 9R14) by profile(): physics dominates, the TF policy call is ~25%. Not re-run
+    # here: a TF body in the parent is one more ~1.5 GB process next to the 8 workers.
+    prof = {"policy_ms": 2.18, "env_step_ms": 6.03, "per_sim_second_s": 41.0}
     (OUT / "meta.json").write_text(json.dumps({"host": platform.node(), "jobs": jobs, "repeats": repeats,
                                                "levels": plan.CAST_LEVELS, "profile": prof}))
     path = OUT / "flights.jsonl"
@@ -92,7 +97,7 @@ def main(jobs: int, repeats: int) -> None:
     with open(path, "a") as out:
         def run(keys):
             n = 0
-            for r in Parallel(n_jobs=jobs, return_as="generator_unordered")(delayed(fly_one)(*k) for k in keys):
+            for r in Parallel(n_jobs=jobs, return_as="generator_unordered")(delayed(mod.fly_one)(*k) for k in keys):
                 out.write(json.dumps(r) + "\n")
                 out.flush()
                 n += 1

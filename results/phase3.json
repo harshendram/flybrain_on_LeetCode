@@ -361,5 +361,149 @@
    0.3518,
    0.3639
   ]
+ },
+ "embodied": {
+  "dp": {
+   "seeds": 50,
+   "flights": 197616,
+   "E1_fidelity": 1.0,
+   "E1_supported": true,
+   "no_feeder": 0,
+   "reached_other": 0,
+   "embodied_mean": 0.3442,
+   "bandit_mean_same_seeds": 0.3442,
+   "E2_diff": 0.0,
+   "E2_ci": [
+    0.0,
+    0.0
+   ],
+   "E2_supported": true,
+   "E3_rho_margin_vs_time": null,
+   "E3_ci": null,
+   "E3_supported": false,
+   "E3_note": "all 20750 test flights arrived at 0.36 s (4 ms frames)"
+  },
+  "real": {
+   "seeds": 50,
+   "flights": 196903,
+   "E1_fidelity": 1.0,
+   "E1_supported": true,
+   "no_feeder": 0,
+   "reached_other": 0,
+   "embodied_mean": 0.3566,
+   "bandit_mean_same_seeds": 0.3566,
+   "E2_diff": 0.0,
+   "E2_ci": [
+    0.0,
+    0.0
+   ],
+   "E2_supported": true,
+   "E3_rho_margin_vs_time": null,
+   "E3_ci": null,
+   "E3_supported": false,
+   "E3_note": "all 20750 test flights arrived at 0.36 s (4 ms frames)"
+  },
+  "uni": {
+   "seeds": 50,
+   "flights": 197753,
+   "E1_fidelity": 1.0,
+   "E1_supported": true,
+   "no_feeder": 0,
+   "reached_other": 0,
+   "embodied_mean": 0.3552,
+   "bandit_mean_same_seeds": 0.3552,
+   "E2_diff": 0.0,
+   "E2_ci": [
+    0.0,
+    0.0
+   ],
+   "E2_supported": true,
+   "E3_rho_margin_vs_time": null,
+   "E3_ci": null,
+   "E3_supported": false,
+   "E3_note": "all 20750 test flights arrived at 0.36 s (4 ms frames)"
+  }
+ },
+ "bank": {
+  "flights": 2702,
+  "by_cast_level": {
+   "0": {
+    "flights": 252,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.143
+   },
+   "1": {
+    "flights": 252,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.141
+   },
+   "2": {
+    "flights": 252,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.14
+   },
+   "3": {
+    "flights": 252,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.138
+   },
+   "4": {
+    "flights": 252,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.137
+   },
+   "5": {
+    "flights": 252,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.136
+   },
+   "6": {
+    "flights": 238,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.136
+   },
+   "7": {
+    "flights": 238,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.135
+   },
+   "8": {
+    "flights": 238,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.134
+   },
+   "9": {
+    "flights": 238,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.133
+   },
+   "10": {
+    "flights": 238,
+    "reached_goal": 1.0,
+    "crashed": 0,
+    "t_arrive_median": 0.36,
+    "track_err_mm": 0.133
+   }
+  }
  }
 }

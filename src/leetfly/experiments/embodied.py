@@ -110,12 +110,15 @@ def embodied_summary(runs, emb, rng) -> dict:
         first = [t for s in ss for t in runs[(w, "embodied", s)]["trials"] if t["split"] == "test" and t.get("t_arrive") is not None]
         m = np.array([t["margin"] for t in first])
         tt = np.array([t["t_arrive"] for t in first])
-        rho = float(spearmanr(m, tt).statistic)
-        bs = []
-        for _ in range(1000):
-            i = rng.integers(0, len(m), len(m))
-            bs.append(spearmanr(m[i], tt[i]).statistic)
-        ci = [round(float(np.percentile(bs, 2.5)), 4), round(float(np.percentile(bs, 97.5)), 4)]
+        if np.ptp(tt) == 0:  # every flight arrived in the same recorded frame: the correlation is undefined
+            rho, ci = None, None
+        else:
+            rho = float(spearmanr(m, tt).statistic)
+            bs = []
+            for _ in range(1000):
+                i = rng.integers(0, len(m), len(m))
+                bs.append(spearmanr(m[i], tt[i]).statistic)
+            ci = [round(float(np.percentile(bs, 2.5)), 4), round(float(np.percentile(bs, 97.5)), 4)]
         out[w] = {
             "seeds": len(ss),
             "flights": n,
@@ -128,9 +131,10 @@ def embodied_summary(runs, emb, rng) -> dict:
             "E2_diff": round(float(d.mean()), 4),
             "E2_ci": boot_mean_ci(d, rng),
             "E2_supported": bool(abs(d.mean()) <= 0.03),
-            "E3_rho_margin_vs_time": round(rho, 4),
+            "E3_rho_margin_vs_time": None if rho is None else round(rho, 4),
             "E3_ci": ci,
-            "E3_supported": bool(ci[1] < 0),
+            "E3_supported": bool(ci is not None and ci[1] < 0),
+            "E3_note": None if rho is not None else f"all {len(tt)} test flights arrived at {tt[0]:.2f} s (4 ms frames)",
         }
     return out
 

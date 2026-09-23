@@ -333,6 +333,54 @@ Embodied: real and uni × seeds 0–2 on AWS (each stream is about 3,500 physics
 
 All outcomes will be reported whether or not they support the predictions.
 
+## Phase 3 — results
+
+**Setup.**
+- **Disembodied.** 50 confirmatory seeds (3–52) × 3 wirings × {full, bandit}.
+- **Embodied.** The same 50 seeds × 3 wirings, drawing every landing from a bank of **2,702 real MuJoCo flights**.
+  The bank was flown by flybody's pretrained controller on one 8-core AWS instance in 68 minutes.
+  - About 590,000 landings in total.
+  - 70 of the planned 2,772 bank flights were lost in a download mix-up, so cast levels 6–10 have 17 repeats
+    instead of 18.
+
+Analysis: `python -m leetfly.experiments.embodied` → `results/phase3.json`, `results/phase3_report.txt`.
+
+**Test first-landing accuracy** on the 415 future problems (mean over 50 seeds):
+
+| wiring | told every answer (full) | learns from its own landings (bandit) | …in a physics body (embodied) |
+|---|---|---|---|
+| real | 0.398 | 0.357 | 0.357 |
+| degree-preserving | 0.378 | 0.344 | 0.344 |
+| uniform | 0.407 | 0.355 | 0.355 |
+
+| | prediction | outcome |
+|---|---|---|
+| **B1** | learning from its own landings costs < 5 points | **not supported (narrowly).** It costs **4.1 points**, 95% CI [3.1, 5.1]. |
+| **B2** | real wiring beats uniform under partial feedback | **not supported.** The difference is +0.14 points, CI [-1.1, 1.4]. The 3-seed pilot's hint was noise. |
+| B3 (expl.) | real vs degree-preserving under bandit | +1.24 points, CI [-0.0, 2.5] |
+| **E1** | the body reaches the intended feeder ≥ 90% | **supported: 100%.** No crashes and no wrong feeder in the bank or in any of the ~590,000 stream landings. |
+| **E2** | embodiment costs ≤ 3 points | **supported, trivially.** Embodied equals bandit exactly (difference 0.000), because the body never missed. |
+| **E3** | surging flies arrive faster than casting ones | **not supported (not measurable).** Casts are real (3.2 mm of sideways sweep at full cast vs 0.3 mm when surging), but they add under 1% to the path. Every flight reached its feeder in the same 4 ms frame (0.36 s). |
+
+**What it means.**
+1. **A connectome-wired mushroom body can drive a physically simulated fly body.** The brain picks a feeder and a
+   flight style, DeepMind and Janelia's trained flight controller flies it in MuJoCo, and dopamine at the landing
+   site trains the brain. Inside the controller's envelope, the body did what the brain intended every time.
+2. **What the body costs is feedback, not motor error.** A fly that learns only from where it lands, one compartment
+   per landing, gets 4.1 points less than one told every answer. Physics added nothing on top of that.
+3. **The envelope is the finding behind E3.** Wide, real-fly-like casts (±52° at 2 Hz) crashed the pretrained
+   controller in every full cast, and the casts it can fly (±26°, 1.5 Hz, peaking at the median turn rate of its
+   training flights) are too gentle to cost time. A controller trained on saccade and evasion clips cannot yet cast
+   like a fly in a plume.
+4. **Wiring still doesn't matter** for learning LeetCode, with full feedback, partial feedback, or a body (as in
+   Phase 1).
+
+**Caveats.**
+- The arena and flights are simplified: the fly always starts airborne at the centre, and touchdown and drinking are
+  scripted.
+- Casts are quantized to 11 levels.
+- Only one mushroom body (male right) was tested.
+
 ## Data and licenses
 
 - MaleCNS v1.0 (CC-BY 4.0), Berg et al., *Cell* 2026.
