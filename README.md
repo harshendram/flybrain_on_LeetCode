@@ -220,6 +220,74 @@ in-sample, so the idiosyncratic share is an upper bound.
    - Only three individual flies were used.
    - The pre-registered H1 and H4 criteria were not met.
 
+## Phase 3 — pre-registration: the brain flies a body (branch `research/embodied`)
+
+Committed before any confirmatory run. Everything here lives on the `research/embodied` branch; `main` is unchanged.
+
+### Question
+
+Phases 1–2 taught the mushroom body with **full feedback**: every problem sent dopamine to all 14 technique
+compartments, so the fly effectively was told every answer. A real fly learns from **where it lands**. It flies to
+one feeder, tastes sugar or gets a shock there, and only that compartment's KC→MBON synapses change. In a body, where
+it lands is set by physics, not intent. Does a connectome-wired mushroom body still learn LeetCode techniques when its
+only teacher is its own landings? Does the real wiring matter more under that partial, self-generated feedback than
+it did under full feedback (where real ≈ scrambled, Phase 1)?
+
+### Design
+
+- **Brain.** The male right MB (MaleCNS v1.0), with Phase 1's nose, antennal lobe, homeostasis, APL sparsity (2.5%)
+  and per-event plasticity rate (balanced η = 64), all frozen. KC codes are identical to Phase 1's
+  (`src/leetfly/embodied/brain.py`; `tests/test_embodied_brain.py` checks that online full feedback equals the
+  closed form).
+- **Stream.** The 1,658 dev problems one at a time (seed 0: LeetCode's chronological order; other seeds: shuffled).
+  On each problem the fly heads for the feeder its MBONs favour, up to 3 tries. Test: the 415 future problems, one
+  landing each, with frozen weights.
+- **Feedback conditions.**
+  - **full**: Phase 1's rule, applied online.
+  - **bandit**: dopamine only in the compartment of the feeder it landed on, and it lands where it intended.
+  - **embodied**: the MB's choice becomes a reference path. It surges when the top-2 margin is large and casts (lateral
+    sweeps, amplitude from the margin) when small, re-planning from its true position every 0.1 s
+    (`src/leetfly/embodied/plan.py`). DeepMind/Janelia's pretrained flybody flight controller (Vaxenburg et al.,
+    *Nature* 2025, frozen) flies that path in MuJoCo physics. Dopamine goes to whichever feeder the body actually
+    reached. A flight that reaches no feeder gives no dopamine and uses up the try.
+- **Wirings.** Real; degree-preserving null (dp); uniform null (uni). These are the Phase 2 null graphs, sample 0.
+- **Arena scale and flight envelope** (feeder-ring radius, speed, cast limits) are set from the flight-controller
+  probe (`src/leetfly/embodied/probe.py`: tracking error on its own data and on our paths) **before** any embodied
+  stream is run, and recorded in `results/embodied/probe.json`.
+- **Metric.** Test first-landing accuracy: the fraction of future problems whose first landing is on a feeder whose
+  technique is a true tag.
+
+### Pilot (already seen, exploratory only)
+
+Seeds 0–2, disembodied. Test first-landing accuracy:
+
+| | full | bandit |
+|---|---|---|
+| real | 0.398 | 0.381 / 0.414 / 0.306 |
+| dp | 0.378 | 0.371 / 0.357 / 0.321 |
+| uni | 0.407 | 0.287 / 0.352 / 0.364 |
+
+### Predictions and decision rules (confirmatory)
+
+Disembodied: 50 fresh seeds (3–52) × 3 wirings × {full, bandit}, paired by seed (same problem order).
+
+- **B1** (partial feedback costs little): on real wiring, mean(full − bandit) < 0.05, and its 95% bootstrap CI lies
+  below 0.05.
+- **B2** (wiring matters under partial feedback): mean bandit accuracy, real − uni > 0, with a 95% paired-bootstrap
+  CI excluding 0. The same difference under full feedback is not significant (it is a single deterministic value per
+  wiring, so it is reported descriptively).
+- **B3** (exploratory): real − dp under bandit feedback. Coverage alone (dp keeps it) vs the exact partners.
+
+Embodied: real and uni × seeds 0–2 on AWS (each stream is about 3,500 physics flights).
+
+- **E1** (the body does what the brain intends): at least 90% of flights reach the intended feeder.
+- **E2** (embodiment costs little): per wiring, |mean embodied − mean bandit (same seeds)| ≤ 0.03.
+- **E3** (surge vs cast): time to the first feeder falls as the top-2 margin rises (Spearman ρ < 0, 95% CI
+  excluding 0).
+- **E4** (exploratory): do motor errors (landing on an unintended feeder) act as useful exploration?
+
+All outcomes will be reported whether or not they support the predictions.
+
 ## Data and licenses
 
 - MaleCNS v1.0 (CC-BY 4.0), Berg et al., *Cell* 2026.
