@@ -66,3 +66,13 @@ def test_pursuit_casts_wider_when_unsure_and_reference_uses_given_heading():
     assert len(unsure) > len(sure)  # sweeping costs time
     qpos, _ = plan.reference(unsure, 0.74, heading=hd)
     assert np.allclose([plan.yaw_of(q) for q in qpos[::500, 3:]], np.unwrap(hd)[::500] - 2 * np.pi * np.round(np.unwrap(hd)[::500] / (2 * np.pi)), atol=1e-6)
+
+
+def test_full_cast_stays_within_the_controllers_turn_rates():
+    env = plan.Envelope()
+    xy, hd = plan.pursuit([0, 0], 0.0, [6.0, 0.0], margin=0.0, env=env)
+    d = np.linalg.norm(xy[1:] - [6.0, 0.0], axis=1)
+    arrive = int(np.argmax(d < 0.6))  # a flight ends at the 6 mm arrival radius
+    assert d[arrive] < 0.6
+    rate = np.abs(np.diff(hd))[:arrive] / plan.CONTROL_DT
+    assert rate.max() <= 2 * np.pi * env.cast_hz * env.cast_swing + 0.5  # ~4.2 rad/s, the training flights' median

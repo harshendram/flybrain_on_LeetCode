@@ -257,6 +257,26 @@ it did under full feedback (where real ≈ scrambled, Phase 1)?
 - **Metric.** Test first-landing accuracy: the fraction of future problems whose first landing is on a feeder whose
   technique is a true tag.
 
+### Amendment (23 Sep 2026, before any confirmatory embodied stream)
+
+**Flight envelope.** The probe fixed:
+- a cruising speed of 15 cm/s. The controller's training flights have a median speed of 12.9 cm/s and a 95th
+  percentile of 32 cm/s. It crashed at 40 cm/s.
+- a feeder ring of 6 cm;
+- an arrival radius of 6 mm;
+- a start height of 0.74 cm.
+
+**Planner.** Re-planning uses a turn-rate-limited pursuit from the body's true heading. A path that snapped to the new
+bearing crashed the controller within 0.15 s.
+
+**Casting fix.** A smoke test showed that full casts crashed the controller: 11 of 168 flights on real wiring and 34
+of 191 on uniform. Every crash was a margin ≈ 0 cast, with a ±52° heading swing at 2 Hz. Casting is now:
+- a ±26° swing at 1.5 Hz, which peaks at 4.2 rad/s, the training flights' median turn rate;
+- faded out in the last 2 cm.
+
+After the fix, a re-smoke had 0 crashes in 103 flights (54 of them casts), and 100% reached the intended feeder. E1
+is therefore judged on this envelope. The smoke runs are not part of any analysis.
+
 ### Pilot (already seen, exploratory only)
 
 Seeds 0–2, disembodied. Test first-landing accuracy:

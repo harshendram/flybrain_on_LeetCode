@@ -39,12 +39,43 @@ KEEP_EVERY = 20  # keep the flown path of every 20th training problem's first fl
 KEEP_TEST = 30
 
 
-def make_brain(wiring: str) -> tuple[OnlineBrain, object]:
+ARRAYS = paths.PROCESSED / "embodied_task_K51.npz"  # pandas-free copy of what the brain needs (for AWS)
+
+
+def save_arrays() -> Path:
+    """The pickled task and Phase 1 model hold pandas objects; flybody's TF 2.8 stack pins an older pandas that
+    can't unpickle them. The brain needs only arrays, so ship those."""
     with open(paths.RESULTS / "cache" / "phase1_model.pkl", "rb") as f:
         p1 = pickle.load(f)
     task = task_mod.build(n_receptors=51)
+    folds = {f"fold{k}_{part}": idx for k, fold in enumerate(task.folds) for part, idx in zip(("tr", "va"), fold)}
+    cfg = p1["config"]
+    np.savez_compressed(
+        ARRAYS, receptors=task.receptors, y=task.y, dev=task.dev, test=task.test, n_folds=len(task.folds),
+        nose_perm=p1["nose"].perm, nose_gain=p1["nose"].gain,
+        config=json.dumps(cfg.to_dict()), **folds,
+    )
+    return ARRAYS
+
+
+def load_arrays():
+    from types import SimpleNamespace
+
+    from leetfly.features.antennal_lobe import Nose
+    from leetfly.fly import FlyConfig
+
+    z = np.load(ARRAYS)
+    folds = [(z[f"fold{k}_tr"], z[f"fold{k}_va"]) for k in range(int(z["n_folds"]))]
+    task = SimpleNamespace(receptors=z["receptors"], y=z["y"], dev=z["dev"], test=z["test"], folds=folds)
+    return task, FlyConfig(**json.loads(str(z["config"]))), Nose(perm=z["nose_perm"], gain=z["nose_gain"])
+
+
+def make_brain(wiring: str) -> tuple[OnlineBrain, object]:
+    if not ARRAYS.exists():
+        save_arrays()
+    task, cfg, nose = load_arrays()
     kind, sample = WIRINGS[wiring]
-    return OnlineBrain(wiring_for(MB, kind, sample), p1["config"], task, p1["nose"]), task
+    return OnlineBrain(wiring_for(MB, kind, sample), cfg, task, nose), task
 
 
 def order_for(n: int, seed: int) -> np.ndarray:

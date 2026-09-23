@@ -27,7 +27,8 @@ class Envelope:
     max_speed: float = 32.0  # cm/s
     max_yaw_rate: float = 8.0  # rad/s
     max_cast: float = 1.5  # cm lateral amplitude
-    cast_hz: float = 2.0  # cast sweeps per second
+    cast_hz: float = 1.5  # cast sweeps per second
+    cast_swing: float = 0.45  # rad of heading swing at full cast: peak yaw rate 2*pi*1.5*0.45 = 4.2 rad/s (the flights' median)
 
 
 def quat_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -79,19 +80,22 @@ def pursuit(start: np.ndarray, heading0: float, goal: np.ndarray, margin: float,
     goal = np.asarray(goal, float)
     h = float(heading0)
     length0 = max(float(np.linalg.norm(goal - pos)), 1e-9)
-    amp = cast_amplitude(margin, env) / env.max_cast * 0.9  # heading swing in radians (~52 degrees at most)
+    # heading swing in radians. The smoke test showed a 0.9 rad (52 degree) swing at 2 Hz (peak 11 rad/s) crashes the
+    # controller in every full cast; the controller's own flights mostly turn at 4-8.5 rad/s.
+    amp = cast_amplitude(margin, env) / env.max_cast * env.cast_swing
     max_step = env.max_yaw_rate * dt
     xy, hd = [pos.copy()], [h]
     t, t_after = 0.0, None
     while t < max_s:
         d = goal - pos
         dist = float(np.linalg.norm(d))
-        if t_after is None and dist < env.speed * dt:
+        if t_after is None and dist < 0.3:  # within 3 mm: hold the heading (the bearing is ill-defined at the goal)
             t_after = t
         if t_after is not None and t - t_after >= overshoot:
             break
         bearing = np.arctan2(d[1], d[0]) if t_after is None else h
-        taper = min(1.0, dist / length0) ** 1.2
+        taper = 0.0 if t_after is not None else min(1.0, max(0.0, (dist - 2.0) / max(length0 - 2.0, 1e-9))) ** 1.2
+        # (no casting in the last 2 cm, nor after passing the goal)
         want = bearing + amp * taper * np.sin(2 * np.pi * env.cast_hz * t)
         dh = (want - h + np.pi) % (2 * np.pi) - np.pi
         h += float(np.clip(dh, -max_step, max_step))

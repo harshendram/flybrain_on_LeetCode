@@ -39,6 +39,11 @@ mkdir -p /opt/leetfly && cd /opt/leetfly
 curl -fsSL '{payload}' -o payload.tgz && tar xzf payload.tgz && ls
 uv venv --python 3.10 .venv
 uv pip install --python .venv/bin/python "{flybody}" {extra}
+# dm-acme[jax] drags in tfp-nightly, which unpacks into the same tensorflow_probability/ folder as the 0.16.0 that
+# TF 2.8 needs; whichever lands last wins. Remove it and reinstall the pinned one.
+uv pip uninstall --python .venv/bin/python tfp-nightly || true
+uv pip install --python .venv/bin/python --no-deps --reinstall-package tensorflow-probability tensorflow-probability==0.16.0
+.venv/bin/python -c "import numpy, tensorflow_probability as tfp; print('tfp', tfp.__version__, 'numpy', numpy.__version__)"
 .venv/bin/python -c "import tensorflow as tf, flybody, dm_control; print('tf', tf.__version__)"
 nproc; lscpu | grep 'Model name'
 mkdir -p results/embodied
@@ -73,7 +78,7 @@ def launch(module: str, args: str, instance_type: str, hours: float) -> None:
     buf = io.BytesIO()
     files = [paths.ROOT / "pyproject.toml", *paths.ROOT.joinpath("configs").glob("*.yaml"),
              *(p for p in (paths.ROOT / "src" / "leetfly").rglob("*.py")),
-             *paths.PROCESSED.glob("mb_*_syn5.npz"), *paths.PROCESSED.glob("task_v2_*.pkl"),
+             *paths.PROCESSED.glob("mb_*_syn5.npz"), paths.PROCESSED / "embodied_task_K51.npz",
              paths.RESULTS / "cache" / "phase1_model.pkl", paths.RESULTS / "phase1.json"]
     flybody_zips = sorted((paths.RAW / "flybody-data").glob("*.zip"))  # fetched once via a browser (see body.download)
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
