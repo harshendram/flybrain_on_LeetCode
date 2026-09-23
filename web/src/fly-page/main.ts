@@ -105,7 +105,9 @@ async function main() {
 
   function randomReal(data: Learning): Problem {
     const f = data.future;
-    const i = (Math.random() * f.n) | 0;
+    // only problems tagged with at least one of the 14 techniques have an answer the fly could find
+    let i = (Math.random() * f.n) | 0;
+    while (f.techniques[i] === 0) i = (Math.random() * f.n) | 0;
     const meta = fly.meta.problems[f.problem[i]];
     const receptors = Float64Array.from(f.receptors.subarray(i * 51, (i + 1) * 51));
     return {
@@ -192,7 +194,9 @@ async function main() {
     $("status").innerHTML =
       `<div class="st-title">${title}</div>` +
       (guesses ? `<div class="st-row">flew to ${guesses}${correct === true ? " ✓" : correct === false ? " ✗" : ""}</div>` : "") +
-      (problem.truth && correct !== undefined ? `<div class="st-row muted">answer: ${esc(problem.truth.map((c) => names[c]).join(", "))}</div>` : "");
+      (problem.truth && correct !== undefined
+        ? `<div class="st-row muted">answer: ${problem.truth.length ? esc(problem.truth.map((c) => names[c]).join(", ")) : "none of the 14 techniques"}</div>`
+        : "");
     const side = (label: string, s: { first: number; total: number }) =>
       `${label}: <b>${s.first} / ${s.total}</b>`;
     $("score").innerHTML = `${side("You", youScore)} · ${side("its brain", brainScore)} · 40% on problems the brain never saw`;
