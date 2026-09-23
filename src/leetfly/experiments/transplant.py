@@ -15,6 +15,7 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse
 import itertools
 import json
+import zlib
 from collections import defaultdict
 
 import numpy as np
@@ -46,8 +47,16 @@ def score_noses(mb: str, kind: str, sample: int, noses: list[tuple[list[int], li
     return [f.test_score(Nose(np.array(p), np.array(g))) for p, g in noses]
 
 
-def born_noses(n: int, seed: int) -> list[tuple[list[int], list[float]]]:
-    rng = np.random.default_rng(seed)
+def dev_fitness_noses(mb: str, kind: str, sample: int, noses: list[tuple[list[int], list[float]]]) -> list[float]:
+    """Exploratory: the evolution fitness (dev folds) of each nose inside this fly's wiring."""
+    task = task_mod.build(n_receptors=51)
+    f = NoseFitness(wiring_for(mb, kind, sample), fly_config(), task)
+    return [f(Nose(np.array(p), np.array(g))) for p, g in noses]
+
+
+def born_noses(n: int, key: str) -> list[tuple[list[int], list[float]]]:
+    """Random born noses, seeded by a stable hash of `key` (Python's hash() differs between processes)."""
+    rng = np.random.default_rng(zlib.crc32(key.encode()))
     return [(rng.permutation(51).tolist(), [1.0] * 51) for _ in range(n)]
 
 
@@ -73,7 +82,7 @@ def main(jobs: int, n_born_real: int, n_born_null: int) -> None:
     jobs_list, keys = [], []
     for mb, kind, sample in wirings:
         n = n_born_real if kind == "real" else n_born_null
-        jobs_list.append((mb, kind, sample, born_noses(n, seed=hash((mb, kind, sample)) % 2**32)))
+        jobs_list.append((mb, kind, sample, born_noses(n, key=f"born|{mb}|{kind}|{sample}")))
         keys.append(("born", mb, kind, sample))
     donors = [r for r in runs if r["wiring"] in ("real", "uniform")]
     for target in mbs:
@@ -157,8 +166,44 @@ def main(jobs: int, n_born_real: int, n_born_null: int) -> None:
         "evolution_runs": [{k: r[k] for k in ("mb", "wiring", "sample", "seed", "dev_fitness", "test", "E", "E_hit1")}
                            for r in runs],
     }
+    report["exploratory_dev_transplants"] = exploratory_dev(runs, mbs, jobs)
     (paths.RESULTS / "phase2.json").write_text(json.dumps(report, indent=1))
     print_report(report, mbs)
+
+
+def exploratory_dev(runs: list[dict], mbs: list[str], jobs: int, n_born: int = 100) -> dict:
+    """NOT pre-registered. Transplants scored on the dev problems the noses were evolved for.
+
+    Test-set gains mix two things: does an evolved nose work in another fly's wiring (the question), and do dev-period
+    gains survive the drift to newer problems. Scoring on dev removes the drift, so what's left is wiring transfer.
+    Self gains are in-sample (the nose was optimised on exactly this score), so the idiosyncratic part is an upper
+    bound. Noses evolved on uniform nulls carry only wiring-independent (periphery + problem-set) gains; noses
+    evolved on degree-preserving nulls carry coverage-level structure but none of the real partner choices.
+    """
+    donors = [r for r in runs if r["wiring"] in ("real", "dp", "uniform")]
+    batch = [(t, "real", 0, born_noses(n_born, key=f"dev|{t}")) for t in mbs]
+    batch += [(t, "real", 0, [(r["perm"], r["gain"]) for r in donors]) for t in mbs]
+    out = Parallel(n_jobs=jobs)(delayed(dev_fitness_noses)(*b) for b in batch)
+    born = {t: float(np.mean(v)) for t, v in zip(mbs, out[: len(mbs)])}
+    gain = defaultdict(list)
+    for t, scores in zip(mbs, out[len(mbs):]):
+        for r, s in zip(donors, scores):
+            gain[(r["mb"], t, r["wiring"])].append(s - born[t])
+    rows = []
+    for s, t in itertools.product(mbs, mbs):
+        g = {k: float(np.mean(gain[(s, t, k)])) for k in ("real", "dp", "uniform")}
+        rows.append({"source": s, "target": t, "kind": "self" if s == t else pair_kind(s, t),
+                     "gain_real_nose": g["real"], "gain_dp_nose": g["dp"], "gain_uniform_nose": g["uniform"]})
+    self_gain = {r["target"]: r["gain_real_nose"] for r in rows if r["kind"] == "self"}
+    for r in rows:
+        r["TR"] = r["gain_real_nose"] / self_gain[r["target"]] if self_gain[r["target"]] > 0 else float("nan")
+        r["inherited_wiring"] = r["gain_real_nose"] - r["gain_uniform_nose"]
+    by_kind = {k: {"median_TR": float(np.median([r["TR"] for r in rows if r["kind"] == k])),
+                   "mean_gain_real_nose": float(np.mean([r["gain_real_nose"] for r in rows if r["kind"] == k])),
+                   "mean_gain_dp_nose": float(np.mean([r["gain_dp_nose"] for r in rows if r["kind"] == k])),
+                   "mean_gain_uniform_nose": float(np.mean([r["gain_uniform_nose"] for r in rows if r["kind"] == k]))}
+               for k in ("self", "within-fly", "same-sex", "cross-sex") if any(r["kind"] == k for r in rows)}
+    return {"born_dev_fitness": born, "rows": rows, "by_kind": by_kind}
 
 
 def print_report(r: dict, mbs: list[str]) -> None:
@@ -183,6 +228,13 @@ def print_report(r: dict, mbs: list[str]) -> None:
     print("periphery-only (nose evolved on the source's uniform null):")
     for s in mbs:
         print(f"{s:13s}" + "".join(f"{rows[(s, t)]['periphery_only']:+13.4f}" for t in mbs))
+
+    ex = r["exploratory_dev_transplants"]
+    print("\nEXPLORATORY (not pre-registered): transplants scored on the dev problems (no temporal drift)")
+    print(f"{'pair kind':12s} {'median TR':>10s} {'real nose':>10s} {'dp nose':>10s} {'uniform nose':>13s}   (mean gain in dev AUROC)")
+    for k, v in ex["by_kind"].items():
+        print(f"{k:12s} {v['median_TR']:10.3f} {v['mean_gain_real_nose']:+10.4f} {v['mean_gain_dp_nose']:+10.4f} "
+              f"{v['mean_gain_uniform_nose']:+13.4f}")
 
 
 if __name__ == "__main__":

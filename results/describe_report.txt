@@ -1,0 +1,19 @@
+coverage max/min: {'malecns_R': 36.4, 'malecns_L': 23.1, 'flywire_R': 21.8, 'flywire_L': 15.2, 'hemibrain_R': 16.3}
+pair                         kind        coverage rho   co-conv. residual r   (within-class null)
+malecns_R ~ malecns_L        within-fly     0.934      0.505               0.384
+malecns_R ~ flywire_R        cross-sex      0.902      0.425               0.324
+malecns_R ~ flywire_L        cross-sex      0.900      0.440               0.347
+malecns_R ~ hemibrain_R      cross-sex      0.917      0.494               0.339
+malecns_L ~ flywire_R        cross-sex      0.873      0.428               0.330
+malecns_L ~ flywire_L        cross-sex      0.915      0.455               0.359
+malecns_L ~ hemibrain_R      cross-sex      0.961      0.504               0.360
+flywire_R ~ flywire_L        within-fly     0.886      0.447               0.327
+flywire_R ~ hemibrain_R      same-sex       0.859      0.441               0.349
+flywire_L ~ hemibrain_R      same-sex       0.913      0.445               0.355
+null-vs-real residual r (should be ~0): [-0.022 -0.003 -0.011 -0.008  0.031]
+pheromone glomeruli, fraction of KCs reached:
+  malecns_R    DA1 0.127  VA1v 0.055  VL2a 0.084
+  malecns_L    DA1 0.129  VA1v 0.063  VL2a 0.093
+  flywire_R    DA1 0.127  VA1v 0.067  VL2a 0.083
+  flywire_L    DA1 0.131  VA1v 0.060  VL2a 0.093
+  hemibrain_R  DA1 0.146  VA1v 0.052  VL2a 0.111

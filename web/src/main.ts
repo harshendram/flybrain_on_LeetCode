@@ -1,7 +1,8 @@
 import "./style.css";
-import { loadAll } from "./data";
+import { loadAll, loadPhase2 } from "./data";
 import examples from "./examples.json";
 import type { Fly, Smell, VariantName } from "./fly";
+import { Phase2, TECH_COLORS, renderCurve, type FemaleNose } from "./phase2";
 import { Brain, FlyScene, ROLE_COLORS } from "./scene";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -176,6 +177,167 @@ async function main() {
   titleEl.value = first.title;
   descEl.value = first.description;
   setTimeout(() => run(first.title, first.description), 700);
+
+  // ---------- Phase 2 (evolve + transplant), loaded in the background ----------
+  const p2data = await loadPhase2(() => {}).catch((e) => (console.warn("phase 2 unavailable", e), null));
+  if (!p2data) return;
+  const p2 = new Phase2(fly, scene, brain, p2data.meta, p2data.bin, p2data.female);
+  setupPhase2(p2, fly, () => current, (m) => {
+    $("mode-smell").hidden = m !== "smell";
+    $("result").hidden = m !== "smell" || !current;
+    $("wiring").hidden = m !== "smell";
+    $("scorecard").hidden = m !== "smell";
+    if (m === "smell" && current) run(current.title, current.desc);
+  });
+}
+
+type Mode = "smell" | "evolve" | "transplant";
+
+function setupPhase2(p2: Phase2, fly: Fly, _current: () => Current | null, onMode: (m: Mode) => void) {
+  const meta = p2.meta;
+  const sc = meta.scores;
+  const pct = (x: number) => `${(100 * x).toFixed(1)}%`;
+  let femaleNose: FemaleNose = "born";
+  let timer: number | undefined;
+  const last = p2.frames() - 1;
+
+  // --- mode tabs ---
+  $("modes").hidden = false;
+  const setMode = (m: Mode) => {
+    for (const b of $("modes").querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === m);
+    $("mode-evolve").hidden = m !== "evolve";
+    $("mode-transplant").hidden = m !== "transplant";
+    onMode(m);
+    if (m === "evolve") {
+      p2.enterEvolve();
+      showFrame(last);
+    } else if (m === "transplant") {
+      stop();
+      p2.enterTransplant(femaleNose);
+      renderTransplant();
+    } else {
+      stop();
+      p2.exit();
+    }
+  };
+  $("modes").addEventListener("click", (e) => {
+    const m = (e.target as HTMLElement).dataset.mode as Mode | undefined;
+    if (m) setMode(m);
+  });
+
+  // --- evolve: replay ---
+  const gen = $<HTMLInputElement>("gen");
+  gen.max = String(last);
+  gen.value = String(last);
+  const showFrame = (f: number) => {
+    gen.value = String(f);
+    p2.showGeneration(f);
+    const g = meta.replay.generations[f];
+    $("gen-label").textContent = `generation ${g}`;
+    renderCurve($<SVGSVGElement & HTMLElement>("curve"), meta.replay.best_fitness, g);
+  };
+  const stop = () => {
+    if (timer) clearInterval(timer);
+    timer = undefined;
+    $("play").textContent = "Play";
+  };
+  gen.addEventListener("input", () => (stop(), showFrame(Number(gen.value))));
+  $("play").addEventListener("click", () => {
+    if (timer) return stop();
+    let f = Number(gen.value) >= last ? 0 : Number(gen.value);
+    $("play").textContent = "Pause";
+    timer = window.setInterval(() => {
+      showFrame(f);
+      if (++f > last) stop();
+    }, 140);
+  });
+  $("tech-legend").innerHTML = fly.meta.techniques
+    .map((t, i) => `<span style="--c:${TECH_COLORS[i]}">${esc(t)}</span>`)
+    .join("");
+  const born = sc["male:born"];
+  const evo = sc["male:evolved"];
+  $("evolve-scores").innerHTML =
+    `<tr><th></th><th>past problems<br>(AUROC)</th><th>future problems<br>(AUROC)</th><th>future<br>top-1</th></tr>` +
+    [["Born nose (random)", born], ["Evolved nose", evo]]
+      .map(([label, s]: any) => `<tr><td>${label}</td><td>${s.dev_auroc.toFixed(3)}</td><td>${s.test_auroc.toFixed(3)}</td><td>${pct(s.test_hit1)}</td></tr>`)
+      .join("");
+  const devGain = evo.dev_auroc - born.dev_auroc;
+  const testGain = evo.test_auroc - born.test_auroc;
+  $("evolve-note").innerHTML =
+    `On the past problems it evolved for, the new nose lifts learning by <b>${devGain >= 0 ? "+" : ""}${devGain.toFixed(3)}</b> AUROC. ` +
+    (testGain > 0.005
+      ? `On newer problems it keeps <b>${testGain >= 0 ? "+" : ""}${testGain.toFixed(3)}</b>.`
+      : `On newer problems that edge <b>does not survive</b> (${testGain >= 0 ? "+" : ""}${testGain.toFixed(3)}): the niche drifted.`);
+
+  // --- transplant ---
+  const renderTransplant = () => {
+    const rows: [FemaleNose, string][] = [["born", "Born nose (random)"], ["evolved", "Her own evolved nose"], ["transplant", "His evolved nose"]];
+    $("transplant-scores").innerHTML =
+      `<tr><th>female fly with…</th><th>past (AUROC)</th><th>future (AUROC)</th><th>future top-1</th></tr>` +
+      rows
+        .map(([k, label]) => {
+          const s = sc[`female:${k}`];
+          return `<tr class="${k === femaleNose ? "on" : ""}"><td>${label}</td><td>${s.dev_auroc.toFixed(3)}</td><td>${s.test_auroc.toFixed(3)}</td><td>${pct(s.test_hit1)}</td></tr>`;
+        })
+        .join("");
+    const maleGain = sc["male:evolved"].test_auroc - sc["male:born"].test_auroc;
+    const caveat =
+      maleGain <= 0
+        ? `<p class="note">Heads-up: this particular male fly is the one case where evolution's gain did <b>not</b> ` +
+          `carry over to newer problems (${maleGain >= 0 ? "+" : ""}${maleGain.toFixed(3)}), so his nose is a weak donor. ` +
+          `The pattern across all flies is below.</p>`
+        : "";
+    $("transplant-summary").innerHTML = caveat + summaryHtml(meta);
+    for (const b of $("female-nose").querySelectorAll("button")) b.classList.toggle("on", b.dataset.nose === femaleNose);
+  };
+  $("female-nose").addEventListener("click", (e) => {
+    const n = (e.target as HTMLElement).dataset.nose as FemaleNose | undefined;
+    if (!n) return;
+    femaleNose = n;
+    p2.setFemaleNose(n);
+    renderTransplant();
+    if (lastBoth) smellBoth(lastBoth.title, lastBoth.description);
+  });
+  let lastBoth: { title: string; description: string } | null = null;
+  const smellBoth = (title: string, description: string) => {
+    lastBoth = { title, description };
+    const { male, female } = p2.smellBoth(title, description, femaleNose);
+    const top = (s: Smell) => s.ranking.slice(0, 3).map((c) => `<li>${esc(fly.meta.techniques[c])}</li>`).join("");
+    $("both-guesses").innerHTML =
+      `<div><h4>Male (his evolved nose)</h4><ol>${top(male)}</ol></div>` +
+      `<div><h4>Female (${femaleNose === "transplant" ? "his nose" : femaleNose === "evolved" ? "her evolved nose" : "born nose"})</h4><ol>${top(female)}</ol></div>`;
+  };
+  $("examples2").innerHTML = examples.map((e, i) => `<button data-i="${i}">${esc(e.short)}</button>`).join("");
+  $("examples2").addEventListener("click", (e) => {
+    const i = (e.target as HTMLElement).dataset.i;
+    if (i !== undefined) smellBoth(examples[Number(i)].title, examples[Number(i)].description);
+  });
+}
+
+function summaryHtml(meta: import("./data").Phase2Meta): string {
+  const s = meta.summary as Record<string, any>;
+  const ex = meta.exploratory;
+  if (!s || s.H1 === undefined) return "";
+  const pct = (x: number) => `${Math.round(100 * x)}%`;
+  const verdict = (ok: boolean) => (ok ? `<span class="yes">supported</span>` : `<span class="no">not supported</span>`);
+  const k = s.transplant_gain_by_kind as Record<string, number>;
+  return (
+    `<h3>The full experiment: 5 mushroom bodies, 3 flies, 75 evolution runs</h3><ul class="findings">` +
+    `<li>Evolving only the nose improved learning on <i>future</i> problems in ${s.runs_positive} of ${s.runs_total} runs, ` +
+    `but by just +${s.E.real.toFixed(3)} AUROC, and not in every fly. <small>Pre-registered H1 ${verdict(s.H1)}.</small></li>` +
+    `<li>Brains are evolvable <b>because some glomeruli reach far more Kenyon cells</b>: real wiring (+${s.E.real.toFixed(4)}) ` +
+    `and coverage-preserving scrambles (+${s.E.dp.toFixed(4)}) gain ${(s.E.real / s.E.uniform).toFixed(1)}× more than uniformly scrambled wiring (+${s.E.uniform.toFixed(4)}). <small>H2 ${verdict(s.H2)}.</small></li>` +
+    `<li>Evolution rediscovered the trick on its own: it puts the most informative receptors on the most-sampled glomeruli ` +
+    `(ρ = +${s.H3_rho.real.toFixed(2)} on real wiring, +${s.H3_rho.uniform.toFixed(2)} when coverage is flattened). <small>H3 supported.</small></li>` +
+    `<li>A transplanted nose keeps <b>${pct(s.transplant_ratio_of_means)}</b> of the benefit on future problems (${s.transplants_positive} of ${s.transplants_total} transplants help), ` +
+    `just as well across sexes (+${k["cross-sex"].toFixed(4)}) as between females (+${k["same-sex"].toFixed(4)}) or within one fly (+${k["within-fly"].toFixed(4)}). ` +
+    `<small>The stricter pre-registered criterion (ratio ≥ 0.7 in every group) was ${s.H4 ? "met" : "not met"}.</small></li>` +
+    (ex
+      ? `<li>Exploratory, on the problems the noses evolved for: noses evolved on coverage-preserving scrambles transfer as well as real ones ` +
+        `(+${ex["cross-sex"].mean_gain_dp_nose.toFixed(3)} vs +${ex["cross-sex"].mean_gain_real_nose.toFixed(3)} across sexes). What evolution can use is the <b>inherited coverage bias</b>, not each fly's own wiring quirks.</li>`
+      : "") +
+    `</ul>`
+  );
 }
 
 function renderScorecard(fly: Fly) {

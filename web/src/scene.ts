@@ -320,9 +320,9 @@ export class FlyScene {
     this.camera.aspect = w / h;
     this.narrow = w <= 820;
     this.portrait = w / h < 1;
-    // on phones the panel covers the bottom half, so draw the brains in the top half
+    // the control panel covers part of the stage: bottom half on phones, a left column on desktop
     if (this.narrow) this.camera.setViewOffset(w, h, 0, h * 0.2, w, h);
-    else this.camera.clearViewOffset();
+    else this.camera.setViewOffset(w, h, -200, 0, w, h);
     this.camera.updateProjectionMatrix();
   }
 

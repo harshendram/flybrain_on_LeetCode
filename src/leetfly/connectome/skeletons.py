@@ -53,6 +53,29 @@ def read_precomputed(data: bytes, nm_to_um: bool = True) -> tuple[np.ndarray, np
     return ids, xyz, np.where(parent >= 0, parent + 1, -1)
 
 
+def prune_twigs(ids: np.ndarray, xyz: np.ndarray, parents: np.ndarray, min_length: float, passes: int = 2):
+    """Drop terminal branches shorter than `min_length` microns (FlyWire's L2 skeletons are very twiggy)."""
+    for _ in range(passes):
+        index = {int(n): i for i, n in enumerate(ids)}
+        par = np.array([index.get(int(p), -1) for p in parents])
+        n_children = np.bincount(par[par >= 0], minlength=len(ids))
+        drop = np.zeros(len(ids), dtype=bool)
+        for leaf in np.flatnonzero(n_children == 0):
+            path, node, length = [], leaf, 0.0
+            while par[node] >= 0 and n_children[node] <= 1:
+                path.append(node)
+                length += float(np.linalg.norm(xyz[node] - xyz[par[node]]))
+                node = par[node]
+            if par[node] >= 0 or n_children[node] > 1:  # stopped at a branch point, not at the root
+                if length < min_length:
+                    drop[path] = True
+        if not drop.any():
+            break
+        keep = ~drop
+        ids, xyz, parents = ids[keep], xyz[keep], parents[keep]
+    return ids, xyz, parents
+
+
 def downsample(ids: np.ndarray, xyz: np.ndarray, parents: np.ndarray, step: float) -> tuple[np.ndarray, np.ndarray]:
     """Keep roots, branch points, leaves, and nodes every `step` microns of cable. Returns (xyz, local parents)."""
     index = {int(n): i for i, n in enumerate(ids)}

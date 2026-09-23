@@ -74,6 +74,7 @@ def main(circuit_name: str) -> None:
         else:
             ids, xyz, parents = skeletons.read_precomputed(raw[s["id"]])
             xyz[:, 0] *= -1
+            ids, xyz, parents = skeletons.prune_twigs(ids, xyz, parents, min_length=8.0)
         xyz_ds, par_ds = skeletons.downsample(ids, xyz, parents, STEP[s["role"]])
         neurons.append(s | {"xyz": xyz_ds, "parents": par_ds})
     extra = {

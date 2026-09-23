@@ -114,6 +114,83 @@ exploited inherited wiring; one that breaks overfitted one fly's quirks.
 
 All outcomes will be reported whether or not they support the predictions.
 
+## Phase 2 — results
+
+75 evolution runs (5 MBs × {real, 2 degree-preserving, 2 uniform} × 3 seeds). 45 ran on a laptop (i5-12500H);
+the 30 FlyWire runs ran on one AWS EC2 `c7a.2xlarge`, which is identical code and settings with the host recorded in
+each result file. Analysis: `python -m leetfly.experiments.transplant` → `results/phase2.json`,
+`results/phase2_report.txt`; figures in `results/figures/`.
+
+### Pre-registered outcomes
+
+| | prediction | outcome |
+|---|---|---|
+| **H1** | evolved noses beat random noses on future problems, in all 5 MBs and every seed | **not supported.** 13/15 real-wiring runs gain, and 4/5 MBs gain on every seed. The male right MB's seeds: −0.0013, −0.0038, +0.0040. Mean gain **+0.0080** test AUROC (small). |
+| **H2** | evolvability comes from coverage bias | **supported.** E(real) = +0.0080, E(degree-preserving) = +0.0079, E(uniform) = +0.0022. real − uniform = +0.0058, 95% CI [0.0026, 0.0090]; \|real − dp\| = 0.0002. |
+| **H3** | evolution puts informative receptors on high-coverage glomeruli | **supported.** Spearman ρ: real +0.204 [0.135, 0.267]; dp +0.191 [0.158, 0.222]; uniform +0.028 [−0.024, 0.080]. |
+| **H4** | transfer ratio ≥ 0.7 overall and in every pair type | **not supported.** The median is undefined, because the male right MB's self gain was ≤ 0; female↔female median = 0.68. |
+| H5 (expl.) | cross-sex transfer < same-sex | **not supported.** Mean transplant gain: cross-sex +0.0066, same-sex +0.0062, within-fly +0.0058. |
+| H6 (expl.) | real wiring more evolvable than degree-preserving | **not supported.** +0.0002 [−0.0032, 0.0038]. |
+
+Descriptive, from the same transplant matrix:
+- On future problems a transplanted nose gives the target fly **+0.0064** on average against **+0.0080** for a fly's
+  own evolved nose, a ratio of means of **0.79**; **18 of 20** transplants help.
+- Noses evolved on the uniform null ("periphery-only") give ≤ 0 when transplanted into real wiring.
+
+### Exploratory (not pre-registered): transplants scored on the problems the noses evolved for
+
+Test-set gains mix two questions: whether a nose works in another fly's wiring, and whether dev-period gains survive
+the drift to newer problems. Scoring every transplant on the dev folds removes the drift. Self gains are then
+in-sample, so the idiosyncratic share is an upper bound.
+
+| pair | nose evolved on real wiring | on degree-preserving null | on uniform null | median TR |
+|---|---|---|---|---|
+| self (in-sample) | +0.035 | +0.020 | +0.002 | 1 |
+| other side, same fly | +0.020 | +0.020 | +0.002 | 0.58 |
+| another female | +0.015 | +0.016 | +0.001 | 0.44 |
+| other sex | +0.017 | +0.017 | +0.002 | 0.47 |
+
+![transplants](results/figures/transplant.png)
+![evolvability](results/figures/evolvability.png) ![mechanism](results/figures/mechanism.png)
+
+### Descriptive connectomics (5 MBs; `python -m leetfly.experiments.describe`)
+
+- **Coverage is inherited.** The fraction of KCs each glomerulus reaches correlates at Spearman ρ = 0.86–0.96
+  between every pair of MBs: within a fly, between females, and between the male and both females. The spread
+  between the most- and least-sampled glomerulus is 15–36×. DP1m, DM1 and DC1 are always on top; DA3, DA4m, VL1 and
+  DL4 are always at the bottom.
+- **So is some higher-order structure, but evolution didn't use it.**
+  - Co-convergence beyond coverage (glomerulus pairs sharing more KCs than a degree-preserving null predicts)
+    correlates across MBs at r = 0.43–0.51, or 0.32–0.38 against a stricter null that rewires only within KC class
+    (γ / α′β′ / αβ). Null graphs give r ≈ 0.
+  - Yet noses evolved on real wiring gain no more than on degree-preserving nulls (H6). Inherited is not the same
+    as useful for a new niche.
+- **No sexual dimorphism in pheromone-glomerulus coverage.** The fraction of KCs reached by DA1, VA1v and VL2a is
+  similar in the male (0.13 / 0.06 / 0.09) and the females (0.13–0.15 / 0.05–0.07 / 0.08–0.11).
+
+![coverage](results/figures/coverage.png)
+
+### What it means
+
+1. **With a random nose, the fly's wiring is just a prior.** Phase 1 found real ≈ scrambled. Once the nose can adapt,
+   the **coverage bias becomes an asset**: brains whose glomeruli reach very different numbers of KCs (real, or
+   degree-preserving scrambles) are ~3.6× more evolvable than brains with flattened coverage.
+2. **Evolution rediscovers the theory.** Nobody told the evolution strategy about coverage, yet it puts the most
+   informative receptors on the most-sampled glomeruli, as Dorrell & Latham's kernel theory says it should.
+3. **What evolution uses is inherited, not individual.**
+   - Noses evolved on degree-preserving scrambles (same coverage, random partners) transfer exactly as well as noses
+     evolved on real wiring.
+   - A nose evolved in one fly works in another, **including one of the other sex**, about as well as between two
+     females.
+   - Each fly's own partner choices add in-sample fitness that does not travel.
+4. **Caveats.**
+   - Effects on future problems are small (+0.008 AUROC), and one of the five MBs gained nothing.
+   - Dev-period gains shrink under temporal drift.
+   - LeetCode text is an arbitrary "niche".
+   - The model is rate-based, with frozen hyperparameters.
+   - Only three individual flies were used.
+   - The pre-registered H1 and H4 criteria were not met.
+
 ## Data and licenses
 
 - MaleCNS v1.0 (CC-BY 4.0), Berg et al., *Cell* 2026.

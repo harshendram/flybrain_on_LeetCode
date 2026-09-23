@@ -165,6 +165,17 @@ export class Fly {
     return name in this.variants;
   }
 
+  /** The PN->KC wiring of an existing variant (to give another nose to the same fly). */
+  wiringOf(name: VariantName): Pick<VariantArrays, "indptr" | "indices" | "data"> {
+    const v = this.variants[name];
+    return { indptr: v.indptr, indices: v.indices, data: v.data };
+  }
+
+  noseOf(name: VariantName): { perm: Uint16Array; gain: Float64Array } {
+    const v = this.variants[name];
+    return { perm: v.perm, gain: v.gain };
+  }
+
   /** l2-normalized sublinear TF-IDF, as a sparse vector. */
   tfidf(text: string): { idx: number[]; val: number[] } {
     const counts = new Map<number, number>();

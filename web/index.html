@@ -25,7 +25,12 @@
         <span class="tagline">a real fly brain circuit learns to spot algorithms</span>
       </div>
       <div class="top-actions">
-        <div class="seg" role="group" aria-label="Wiring">
+        <div class="seg" role="group" aria-label="Mode" id="modes" hidden>
+          <button data-mode="smell" class="on">Smell</button>
+          <button data-mode="evolve">Evolve a nose</button>
+          <button data-mode="transplant">Nose transplant</button>
+        </div>
+        <div class="seg" role="group" aria-label="Wiring" id="wiring">
           <button id="wire-real" class="on" title="The fly's measured wiring from the MaleCNS connectome">Real wiring</button>
           <button id="wire-scrambled" title="Same neurons, inputs rewired at random (degree-preserving)">Scrambled</button>
         </div>
@@ -35,7 +40,45 @@
     </header>
 
     <aside class="panel" id="panel">
-      <section>
+      <section id="mode-evolve" hidden>
+        <h2>Evolve a nose for algorithms</h2>
+        <p class="lede">
+          Evolution may change only the male fly's <b>nose</b>: which receptor each glomerulus expresses, and how many
+          sensory neurons it gets (a fixed budget). His brain wiring stays exactly as measured. Fitness is how well the
+          fly then learns techniques on past problems.
+        </p>
+        <div class="replay">
+          <button id="play" class="ghost">Play</button>
+          <input type="range" id="gen" min="0" max="30" value="30" aria-label="Generation" />
+          <span id="gen-label" class="mono"></span>
+        </div>
+        <svg id="curve" class="curve" role="img" aria-label="Fitness over generations"></svg>
+        <p class="muted small">Bead colour: the technique its receptor smells most. Bead size: its sensory neurons.</p>
+        <div class="swatches" id="tech-legend"></div>
+        <h3>What evolution bought</h3>
+        <table class="compare" id="evolve-scores"></table>
+        <p class="note" id="evolve-note"></p>
+      </section>
+
+      <section id="mode-transplant" hidden>
+        <h2>Nose transplant: male → female</h2>
+        <p class="lede">
+          Left: the male fly (MaleCNS) with his evolved nose. Right: a female fly (FlyWire) with her own wiring. Her
+          brain learns with whatever nose you give her.
+        </p>
+        <div class="seg wide" role="group" aria-label="Her nose" id="female-nose">
+          <button data-nose="born" class="on">Born nose</button>
+          <button data-nose="evolved">Her evolved nose</button>
+          <button data-nose="transplant">His nose</button>
+        </div>
+        <table class="compare" id="transplant-scores"></table>
+        <div id="transplant-summary" class="summary"></div>
+        <h3>Try a problem on both flies</h3>
+        <div class="chips" id="examples2"></div>
+        <div class="both" id="both-guesses"></div>
+      </section>
+
+      <section id="mode-smell">
         <h2>Give the fly a problem</h2>
         <input id="title" placeholder="Title (optional)" autocomplete="off" />
         <textarea id="desc" rows="6" placeholder="Paste a LeetCode problem statement, constraints included…"></textarea>
