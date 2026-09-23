@@ -11,12 +11,12 @@ export type Band = "PN" | "KC" | "OUT" | "DA";
 // [base rgb, glow rgb, resting opacity, peak opacity]. Normal alpha blending: a bundle of ~2,000 overlapping KC axons
 // saturates to its own colour instead of blowing out to white; the bloom pass supplies the glow of firing cells.
 const PALETTE: [number, number, number, number, number, number, number, number][] = [
-  [0.16, 0.28, 0.7, 0.45, 0.95, 1.0, 0.035, 0.6], // KC
-  [0.75, 0.38, 0.12, 1.0, 0.72, 0.35, 0.07, 0.75], // PN
-  [0.2, 0.55, 0.3, 0.55, 1.0, 0.65, 0.06, 1.0], // MBON
-  [0.6, 0.45, 0.12, 1.0, 0.85, 0.4, 0.025, 0.28], // PAM (reward): ~160 cells with dense arbours
-  [0.65, 0.16, 0.22, 1.0, 0.45, 0.5, 0.06, 0.8], // PPL1 (punishment): 8 cells
-  [0.4, 0.28, 0.65, 0.8, 0.65, 1.0, 0.04, 0.45], // APL
+  [0.16, 0.28, 0.7, 0.45, 0.95, 1.0, 0.11, 0.6], // KC
+  [0.75, 0.38, 0.12, 1.0, 0.72, 0.35, 0.14, 0.75], // PN
+  [0.2, 0.55, 0.3, 0.55, 1.0, 0.65, 0.12, 1.0], // MBON
+  [0.6, 0.45, 0.12, 1.0, 0.85, 0.4, 0.08, 0.28], // PAM (reward): ~160 cells with dense arbours
+  [0.65, 0.16, 0.22, 1.0, 0.45, 0.5, 0.12, 0.8], // PPL1 (punishment): 8 cells
+  [0.4, 0.28, 0.65, 0.8, 0.65, 1.0, 0.1, 0.45], // APL
 ];
 export const ROLE_COLORS = PALETTE.map(([r, g, b]) => `rgb(${(r * 255) | 0}, ${(g * 255) | 0}, ${(b * 255) | 0})`);
 export const BAND_COLORS: Record<Band, string> = { PN: "#ffb35c", KC: "#66f0ff", OUT: "#8cf5a8", DA: "#ffd166" };
@@ -205,7 +205,7 @@ export interface SpikeEvent {
 /** One fly's mushroom-body circuit: real neuron skeletons, glomeruli, its whole-brain cloud, and spiking activity. */
 export class Brain {
   readonly group = new THREE.Group();
-  readonly radius: number;
+  radius: number;
   readonly kcNeuron: Int32Array; // model KC index -> neuron index
   readonly pnByGlom: number[][];
   readonly displayMbons: number[]; // one real MBON drawn per technique
@@ -224,6 +224,8 @@ export class Brain {
   private start: Float32Array;
   private flicker = new Set<number>();
   private trains = new Map<number, Train>();
+  private context: THREE.ShaderMaterial | null = null;
+  private busyUntil = 0;
   private band: (Band | null)[];
   private bandRow: Float32Array;
   private glomTarget: Float32Array;
@@ -322,7 +324,9 @@ export class Brain {
       depthWrite: false,
       blending: THREE.NormalBlending,
     });
-    this.group.add(new THREE.LineSegments(geom, this.material));
+    const circuit = new THREE.LineSegments(geom, this.material);
+    circuit.renderOrder = 1;
+    this.group.add(circuit);
 
     const G = meta.glomeruli.length;
     this.glom = new THREE.InstancedMesh(
@@ -337,6 +341,82 @@ export class Brain {
     for (let g = 0; g < G; g++) this.glom.setColorAt(g, new THREE.Color(0.25, 0.14, 0.06));
     this.placeGlomeruli();
     this.group.add(this.glom);
+  }
+
+  /**
+   * Arbors the claim names but the right mushroom body does not include: the other lobe, the lateral horn,
+   * and neurons one synapse away. They do not spike. The learning circuit draws on top.
+   */
+  addContext(neurons: { positions: Float32Array; parents: Uint32Array; kind: Float32Array; role: Float32Array; dist: Float32Array; seed: Float32Array }) {
+    const n = neurons.kind.length;
+    const pos = new Float32Array(3 * n);
+    const index: number[] = [];
+    const reach: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const p = this.toScene(neurons.positions[3 * i], neurons.positions[3 * i + 1], neurons.positions[3 * i + 2]);
+      pos.set(p, 3 * i);
+      if (i % 16 === 0) reach.push(Math.hypot(p[0], p[1], p[2]));
+      const parent = neurons.parents[i];
+      // partners are the faintest layer: every other segment is enough and halves the fill cost
+      if (parent !== 0xffffffff && (neurons.kind[i] !== 0 || i % 2 === 0)) index.push(i, parent);
+    }
+    // frame the bulk of the arbors, not the one longest partner axon
+    reach.sort((a, b) => a - b);
+    this.radius = Math.max(this.radius, reach[Math.floor(reach.length * 0.95)] ?? 0);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geom.setAttribute("aKind", new THREE.BufferAttribute(neurons.kind, 1));
+    geom.setAttribute("aRole", new THREE.BufferAttribute(neurons.role, 1));
+    geom.setAttribute("aDist", new THREE.BufferAttribute(neurons.dist, 1));
+    geom.setAttribute("aSeed", new THREE.BufferAttribute(neurons.seed, 1));
+    geom.setIndex(new THREE.BufferAttribute(new Uint32Array(index), 1));
+    const mesh = new THREE.LineSegments(
+      geom,
+      new THREE.ShaderMaterial({
+        vertexShader: /* glsl */ `
+          attribute float aKind;
+          attribute float aRole;
+          attribute float aDist;
+          attribute float aSeed;
+          uniform vec3 uBase[6];
+          uniform float uTime;
+          uniform float uActivity;
+          varying vec3 vColor;
+          varying float vAlpha;
+          void main() {
+            int kind = int(aKind + 0.5);
+            int role = int(aRole + 0.5);
+            vec3 partner = vec3(0.45, 0.40, 0.78);
+            vec3 horn = vec3(0.78, 0.55, 0.95);
+            vColor = kind == 2 ? uBase[role] : kind == 1 ? horn : partner;
+            // 1.8M overlapping segments: keep each one faint or the bundle saturates to white under bloom
+            vAlpha = kind == 2 ? 0.07 : kind == 1 ? 0.05 : 0.016;
+            // alive: every neuron fires now and then (faster while the circuit is busy); the spike runs out
+            // from the soma along the cable at ${PULSE_SPEED.toFixed(1)} um/s, like the circuit's own pulses
+            float period = mix(3.2, 1.1, uActivity) * (0.6 + 0.8 * aSeed);
+            float since = mod(uTime + aSeed * 37.0, period) - aDist / ${PULSE_SPEED.toFixed(1)};
+            float pulse = since > 0.0 ? exp(-since / 0.18) : exp(-since * since / 0.004);
+            pulse *= step(aSeed, 0.3 + 0.25 * uActivity);  // only a subset joins in
+            vColor = mix(vColor, vec3(0.6, 0.92, 1.0), 0.6 * pulse);
+            vAlpha += (kind == 0 ? 0.05 : 0.09) * pulse;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }`,
+        fragmentShader: /* glsl */ `
+          varying vec3 vColor;
+          varying float vAlpha;
+          void main() { gl_FragColor = vec4(vColor, vAlpha); }`,
+        uniforms: {
+          uBase: { value: PALETTE.map((p) => new THREE.Vector3(p[0], p[1], p[2])) },
+          uTime: { value: 0 },
+          uActivity: { value: 0 },
+        },
+        transparent: true,
+        depthWrite: false,
+      }),
+    );
+    mesh.renderOrder = 0;
+    this.group.add(mesh);
+    this.context = mesh.material as THREE.ShaderMaterial;
   }
 
   /** Put this fly's whole brain around its circuit: one dot per real neuron at its measured soma. */
@@ -380,6 +460,7 @@ export class Brain {
 
   /** Play one "smell": glomeruli -> PN spike trains -> the sparse KCs (APL) -> output neurons, over ~3 s. */
   smell(pn: Float64Array, activeKcs: Int32Array, scores: Float64Array, duration = 3.2) {
+    this.busyUntil = this.now() + duration;
     const maxPn = Math.max(...pn, 1e-9);
     this.flicker.clear();
     this.trains.clear();
@@ -413,6 +494,7 @@ export class Brain {
 
   /** Sugar lights the reward (PAM) cluster, a shock the punishment (PPL1) cluster: a burst of dopamine spikes. */
   dopamine(kind: "PAM" | "PPL1", strength = 1) {
+    this.busyUntil = Math.max(this.busyUntil, this.now() + 1.5);
     const cluster = kind === "PAM" ? this.pam : this.ppl1;
     for (const k of cluster) {
       this.set(k, 0.6 * strength, Math.random() * 0.1);
@@ -456,6 +538,11 @@ export class Brain {
     }
     this.actTex.needsUpdate = true;
     this.material.uniforms.uTime.value = t;
+    if (this.context) {
+      const u = this.context.uniforms;
+      u.uTime.value = REDUCED_MOTION ? 0 : t;
+      u.uActivity.value += ((t < this.busyUntil ? 1 : 0) - u.uActivity.value) * Math.min(1, rate * 0.5);
+    }
     this.cloud?.update(t);
     const col = new THREE.Color();
     for (let g = 0; g < this.glomTarget.length; g++) {
@@ -502,7 +589,7 @@ export class FlyScene {
     this.controls.autoRotateSpeed = 0.35;
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.8, 0.35, 0.45));
+    this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.35, 0.55));
     this.composer.addPass(new OutputPass());
 
     this.resize();

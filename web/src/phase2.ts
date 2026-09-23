@@ -60,9 +60,12 @@ export class Phase2 {
   }
 
   enterEvolve() {
-    this.female.group.visible = false;
-    this.scene.focus([this.male]);
+    // She stays on stage: the nose being evolved is something that can be put into another fly.
+    this.female.group.visible = true;
+    this.scene.focus([this.male, this.female]);
     this.showGeneration(this.frames() - 1);
+    const born = this.fly.noseOf("female:born");
+    this.styleNose(this.female, born.perm, born.gain);
   }
 
   enterTransplant(nose: FemaleNose) {

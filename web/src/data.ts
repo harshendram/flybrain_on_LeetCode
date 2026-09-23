@@ -149,6 +149,63 @@ export async function loadSkeletons(circuit: string, p: Progress): Promise<Skele
   return { meta, positions, parents, dist };
 }
 
+export interface ContextPack {
+  positions: Float32Array;
+  /** Absolute node index of the parent, or 65535 at a root. Wider than the packed local parents. */
+  parents: Uint32Array;
+  /** 0 partner, 1 lateral horn, 2 the other mushroom body. One value per node. */
+  kind: Float32Array;
+  role: Float32Array;
+  /** Cable distance from the soma (µm) and a per-neuron random seed, for the resting shimmer. */
+  dist: Float32Array;
+  seed: Float32Array;
+}
+
+const CONTEXT_ROLE: Record<string, number> = { KC: 0, PN: 1, MBON: 2, PAM: 3, PPL1: 4, APL: 5 };
+
+/** Left mushroom body, lateral horn, and one-synapse partners. Not part of the spike texture. */
+export async function loadContext(p: Progress): Promise<ContextPack> {
+  const [meta, bin] = await Promise.all([
+    fetchJson<{ origin: number[]; scale: number; n_nodes: number; dist_scale?: number; neurons: { role: string; group: string; offset: number; count: number }[] }>(
+      "malecns_context.json",
+    ),
+    fetchBinary("malecns_context.bin", p),
+  ]);
+  const n = meta.n_nodes;
+  const q = new Uint16Array(bin, 0, 3 * n);
+  const parents = new Uint16Array(bin, 6 * n, n);
+  const positions = new Float32Array(3 * n);
+  for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) positions[3 * i + a] = q[3 * i + a] / meta.scale + meta.origin[a];
+  const kind = new Float32Array(n);
+  const role = new Float32Array(n);
+  const seed = new Float32Array(n);
+  const dist = new Float32Array(n);
+  if (meta.dist_scale) {
+    const qd = new Uint16Array(bin, 8 * n, n);
+    for (let i = 0; i < n; i++) dist[i] = qd[i] / meta.dist_scale;
+  }
+  meta.neurons.forEach((neuron, j) => {
+    const k = neuron.group === "left" ? 2 : neuron.group === "lh" ? 1 : 0;
+    const r = CONTEXT_ROLE[neuron.role] ?? 0;
+    const sd = (Math.sin(j * 12.9898) * 43758.5453) % 1;
+    for (let i = neuron.offset; i < neuron.offset + neuron.count; i++) {
+      kind[i] = k;
+      role[i] = r;
+      seed[i] = Math.abs(sd);
+    }
+  });
+  // parents in the pack are local to each neuron; the line index needs absolute node ids
+  const absolute = new Uint32Array(n);
+  absolute.fill(0xffffffff);
+  for (const neuron of meta.neurons) {
+    for (let i = 0; i < neuron.count; i++) {
+      const p = parents[neuron.offset + i];
+      absolute[neuron.offset + i] = p === 65535 ? 0xffffffff : neuron.offset + p;
+    }
+  }
+  return { positions, parents: absolute, kind, role, dist, seed };
+}
+
 export async function loadCloud(dataset: string, p: Progress): Promise<Cloud> {
   const [meta, bin] = await Promise.all([fetchJson<CloudMeta>(`${dataset}_cloud.json`), fetchBinary(`${dataset}_cloud.bin`, p)]);
   const q = new Uint16Array(bin, 0, 3 * meta.n);

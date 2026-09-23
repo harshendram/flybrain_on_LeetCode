@@ -1,5 +1,5 @@
 import "./style.css";
-import { Progress, loadAll, loadLearning, loadPhase2 } from "./data";
+import { Progress, loadAll, loadContext, loadLearning, loadPhase2 } from "./data";
 import examples from "./examples.json";
 import type { Fly, Smell, VariantName } from "./fly";
 import { Raster, scaleBar } from "./hud";
@@ -22,11 +22,13 @@ interface Current {
 
 async function main() {
   const barFill = $("bar-fill");
-  const { fly, skeletons, cloud } = await loadAll((loaded, total) => {
+  const progress = (loaded: number, total: number) => {
     barFill.style.width = `${Math.min(100, (100 * loaded) / Math.max(total, 1))}%`;
-  });
+  };
+  const [{ fly, skeletons, cloud }, context] = await Promise.all([loadAll(progress), loadContext(new Progress(progress))]);
   const scene = new FlyScene($("stage"));
   const brain = new Brain(skeletons, fly.C, scene.now);
+  brain.addContext(context);
   brain.addCloud(cloud, narrow.matches ? 3 : 1);
   scene.add(brain, 0);
   scene.intro(brain);
