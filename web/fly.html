@@ -53,6 +53,7 @@
         <div class="seg who" role="group" aria-label="Who flies" id="who">
           <button type="button" data-who="brain" class="on">Its brain</button>
           <button type="button" data-who="you">You</button>
+          <button type="button" data-who="physics" disabled title="Real MuJoCo flights (Phase 3)">Physics</button>
         </div>
         <p class="hint" id="hint">W A S D to fly · Space up · Shift down. On a phone, use the stick.</p>
         <div class="chips" id="examples"></div>
@@ -63,6 +64,16 @@
           <textarea id="p-desc" rows="5" placeholder="Paste a problem statement…"></textarea>
           <button id="release" class="ghost wide">Release the smell</button>
         </details>
+      </section>
+      <section id="physics-panel" class="physics-panel" hidden>
+        <h2>Real physics flights</h2>
+        <p class="lede">
+          Recorded from the real simulation: the mushroom body picks a feeder and a flight style, and DeepMind and
+          Janelia's trained flight controller flies the fly there in MuJoCo physics, flapping its wings. Played back 8x
+          slower. Only the touchdown is animated.
+        </p>
+        <div class="chips" id="physics-list"></div>
+        <p id="physics-summary" class="score"></p>
       </section>
       <section class="status-sec">
         <div id="status" class="status"></div>

@@ -220,6 +220,167 @@ in-sample, so the idiosyncratic share is an upper bound.
    - Only three individual flies were used.
    - The pre-registered H1 and H4 criteria were not met.
 
+## Phase 3 — pre-registration: the brain flies a body (branch `research/embodied`)
+
+Committed before any confirmatory run. Everything here lives on the `research/embodied` branch; `main` is unchanged.
+
+### Question
+
+Phases 1–2 taught the mushroom body with **full feedback**: every problem sent dopamine to all 14 technique
+compartments, so the fly effectively was told every answer. A real fly learns from **where it lands**. It flies to
+one feeder, tastes sugar or gets a shock there, and only that compartment's KC→MBON synapses change. In a body, where
+it lands is set by physics, not intent. Does a connectome-wired mushroom body still learn LeetCode techniques when its
+only teacher is its own landings? Does the real wiring matter more under that partial, self-generated feedback than
+it did under full feedback (where real ≈ scrambled, Phase 1)?
+
+### Design
+
+- **Brain.** The male right MB (MaleCNS v1.0), with Phase 1's nose, antennal lobe, homeostasis, APL sparsity (2.5%)
+  and per-event plasticity rate (balanced η = 64), all frozen. KC codes are identical to Phase 1's
+  (`src/leetfly/embodied/brain.py`; `tests/test_embodied_brain.py` checks that online full feedback equals the
+  closed form).
+- **Stream.** The 1,658 dev problems one at a time (seed 0: LeetCode's chronological order; other seeds: shuffled).
+  On each problem the fly heads for the feeder its MBONs favour, up to 3 tries. Test: the 415 future problems, one
+  landing each, with frozen weights.
+- **Feedback conditions.**
+  - **full**: Phase 1's rule, applied online.
+  - **bandit**: dopamine only in the compartment of the feeder it landed on, and it lands where it intended.
+  - **embodied**: the MB's choice becomes a reference path. It surges when the top-2 margin is large and casts (lateral
+    sweeps, amplitude from the margin) when small, re-planning from its true position every 0.1 s
+    (`src/leetfly/embodied/plan.py`). DeepMind/Janelia's pretrained flybody flight controller (Vaxenburg et al.,
+    *Nature* 2025, frozen) flies that path in MuJoCo physics. Dopamine goes to whichever feeder the body actually
+    reached. A flight that reaches no feeder gives no dopamine and uses up the try.
+- **Wirings.** Real; degree-preserving null (dp); uniform null (uni). These are the Phase 2 null graphs, sample 0.
+- **Arena scale and flight envelope** (feeder-ring radius, speed, cast limits) are set from the flight-controller
+  probe (`src/leetfly/embodied/probe.py`: tracking error on its own data and on our paths) **before** any embodied
+  stream is run, and recorded in `results/embodied/probe.json`.
+- **Metric.** Test first-landing accuracy: the fraction of future problems whose first landing is on a feeder whose
+  technique is a true tag.
+
+### Amendment (23 Sep 2026, before any confirmatory embodied stream)
+
+**Flight envelope.** The probe fixed:
+- a cruising speed of 15 cm/s. The controller's training flights have a median speed of 12.9 cm/s and a 95th
+  percentile of 32 cm/s. It crashed at 40 cm/s.
+- a feeder ring of 6 cm;
+- an arrival radius of 6 mm;
+- a start height of 0.74 cm.
+
+**Planner.** Re-planning uses a turn-rate-limited pursuit from the body's true heading. A path that snapped to the new
+bearing crashed the controller within 0.15 s.
+
+**Casting fix.** A smoke test showed that full casts crashed the controller: 11 of 168 flights on real wiring and 34
+of 191 on uniform. Every crash was a margin ≈ 0 cast, with a ±52° heading swing at 2 Hz. Casting is now:
+- a ±26° swing at 1.5 Hz, which peaks at 4.2 rad/s, the training flights' median turn rate;
+- faded out in the last 2 cm.
+
+After the fix, a re-smoke had 0 crashes in 103 flights (54 of them casts), and 100% reached the intended feeder. E1
+is therefore judged on this envelope. The smoke runs are not part of any analysis.
+
+### Amendment 2 (23 Sep 2026, before any embodied stream is scored): a flight bank, and 50 seeds
+
+**Why.** Flying every trial live made each embodied stream a sequential chain of about 3,500 MuJoCo flights (about
+9 s each), roughly 9 hours per stream even on 8 cores.
+
+**Why a bank is equivalent.** Every embodied flight starts from the same airborne state at the arena centre. So its
+physics depends only on:
+- the goal feeder;
+- the cast strength;
+- the random wing-beat phase.
+
+It never depends on what the brain has learned.
+
+**Changes.**
+- **Cast strength** is quantized to 11 levels (`plan.cast_level`, from full cast to surge). The planner itself uses
+  the quantized level, so live and banked flights are the same process.
+- **The bank.** A bank of real MuJoCo flights (14 feeders × 11 levels × 18 wing-phase seeds = 2,772,
+  `src/leetfly/embodied/bank.py`) is simulated once, in parallel.
+- **Streams.** Each embodied trial draws a flight with its goal and level from the bank (`run.BankBody`, seeded per
+  stream).
+- **Seeds.** The streams then take seconds, so the embodied condition uses the same **50 confirmatory seeds (3–52) ×
+  3 wirings** as full and bandit, instead of real and uni × 3 seeds.
+
+**Unchanged.** E1–E4 and their thresholds. E2 is paired with bandit on the same seeds.
+
+### Pilot (already seen, exploratory only)
+
+Seeds 0–2, disembodied. Test first-landing accuracy:
+
+| | full | bandit |
+|---|---|---|
+| real | 0.398 | 0.381 / 0.414 / 0.306 |
+| dp | 0.378 | 0.371 / 0.357 / 0.321 |
+| uni | 0.407 | 0.287 / 0.352 / 0.364 |
+
+### Predictions and decision rules (confirmatory)
+
+Disembodied: 50 fresh seeds (3–52) × 3 wirings × {full, bandit}, paired by seed (same problem order).
+
+- **B1** (partial feedback costs little): on real wiring, mean(full − bandit) < 0.05, and its 95% bootstrap CI lies
+  below 0.05.
+- **B2** (wiring matters under partial feedback): mean bandit accuracy, real − uni > 0, with a 95% paired-bootstrap
+  CI excluding 0. The same difference under full feedback is not significant (it is a single deterministic value per
+  wiring, so it is reported descriptively).
+- **B3** (exploratory): real − dp under bandit feedback. Coverage alone (dp keeps it) vs the exact partners.
+
+Embodied: real and uni × seeds 0–2 on AWS (each stream is about 3,500 physics flights).
+
+- **E1** (the body does what the brain intends): at least 90% of flights reach the intended feeder.
+- **E2** (embodiment costs little): per wiring, |mean embodied − mean bandit (same seeds)| ≤ 0.03.
+- **E3** (surge vs cast): time to the first feeder falls as the top-2 margin rises (Spearman ρ < 0, 95% CI
+  excluding 0).
+- **E4** (exploratory): do motor errors (landing on an unintended feeder) act as useful exploration?
+
+All outcomes will be reported whether or not they support the predictions.
+
+## Phase 3 — results
+
+**Setup.**
+- **Disembodied.** 50 confirmatory seeds (3–52) × 3 wirings × {full, bandit}.
+- **Embodied.** The same 50 seeds × 3 wirings, drawing every landing from a bank of **2,702 real MuJoCo flights**.
+  The bank was flown by flybody's pretrained controller on one 8-core AWS instance in 68 minutes.
+  - About 590,000 landings in total.
+  - 70 of the planned 2,772 bank flights were lost in a download mix-up, so cast levels 6–10 have 17 repeats
+    instead of 18.
+
+Analysis: `python -m leetfly.experiments.embodied` → `results/phase3.json`, `results/phase3_report.txt`.
+
+**Test first-landing accuracy** on the 415 future problems (mean over 50 seeds):
+
+| wiring | told every answer (full) | learns from its own landings (bandit) | …in a physics body (embodied) |
+|---|---|---|---|
+| real | 0.398 | 0.357 | 0.357 |
+| degree-preserving | 0.378 | 0.344 | 0.344 |
+| uniform | 0.407 | 0.355 | 0.355 |
+
+| | prediction | outcome |
+|---|---|---|
+| **B1** | learning from its own landings costs < 5 points | **not supported (narrowly).** It costs **4.1 points**, 95% CI [3.1, 5.1]. |
+| **B2** | real wiring beats uniform under partial feedback | **not supported.** The difference is +0.14 points, CI [-1.1, 1.4]. The 3-seed pilot's hint was noise. |
+| B3 (expl.) | real vs degree-preserving under bandit | +1.24 points, CI [-0.0, 2.5] |
+| **E1** | the body reaches the intended feeder ≥ 90% | **supported: 100%.** No crashes and no wrong feeder in the bank or in any of the ~590,000 stream landings. |
+| **E2** | embodiment costs ≤ 3 points | **supported, trivially.** Embodied equals bandit exactly (difference 0.000), because the body never missed. |
+| **E3** | surging flies arrive faster than casting ones | **not supported (not measurable).** Casts are real (3.2 mm of sideways sweep at full cast vs 0.3 mm when surging), but they add under 1% to the path. Every flight reached its feeder in the same 4 ms frame (0.36 s). |
+
+**What it means.**
+1. **A connectome-wired mushroom body can drive a physically simulated fly body.** The brain picks a feeder and a
+   flight style, DeepMind and Janelia's trained flight controller flies it in MuJoCo, and dopamine at the landing
+   site trains the brain. Inside the controller's envelope, the body did what the brain intended every time.
+2. **What the body costs is feedback, not motor error.** A fly that learns only from where it lands, one compartment
+   per landing, gets 4.1 points less than one told every answer. Physics added nothing on top of that.
+3. **The envelope is the finding behind E3.** Wide, real-fly-like casts (±52° at 2 Hz) crashed the pretrained
+   controller in every full cast, and the casts it can fly (±26°, 1.5 Hz, peaking at the median turn rate of its
+   training flights) are too gentle to cost time. A controller trained on saccade and evasion clips cannot yet cast
+   like a fly in a plume.
+4. **Wiring still doesn't matter** for learning LeetCode, with full feedback, partial feedback, or a body (as in
+   Phase 1).
+
+**Caveats.**
+- The arena and flights are simplified: the fly always starts airborne at the centre, and touchdown and drinking are
+  scripted.
+- Casts are quantized to 11 levels.
+- Only one mushroom body (male right) was tested.
+
 ## Data and licenses
 
 - MaleCNS v1.0 (CC-BY 4.0), Berg et al., *Cell* 2026.

@@ -1,0 +1,12 @@
+Phase 3 (50 confirmatory seeds)
+
+  real/full    test first-landing 0.3976 (sd 0.0000, 95% CI [0.3976, 0.3976])
+  real/bandit  test first-landing 0.3566 (sd 0.0372, 95% CI [0.3463, 0.3665])
+  dp/full      test first-landing 0.3783 (sd 0.0000, 95% CI [0.3783, 0.3783])
+  dp/bandit    test first-landing 0.3442 (sd 0.0314, 95% CI [0.3355, 0.3525])
+  uni/full     test first-landing 0.4072 (sd 0.0000, 95% CI [0.4072, 0.4072])
+  uni/bandit   test first-landing 0.3552 (sd 0.0347, 95% CI [0.3454, 0.3645])
+B1: {'mean_full_minus_bandit': 0.041, 'ci': [0.031, 0.0514], 'supported': False}
+B2: {'bandit_real_minus_uni': 0.0014, 'ci': [-0.0108, 0.0135], 'supported': False, 'full_real_minus_uni_descriptive': -0.0096, 'real_beats_uni_seeds': 27, 'ties': 0}
+B3: {'bandit_real_minus_dp': 0.0124, 'ci': [-0.0004, 0.0254]}
+embodied: {"dp": {"seeds": 50, "flights": 197616, "E1_fidelity": 1.0, "E1_supported": true, "no_feeder": 0, "reached_other": 0, "embodied_mean": 0.3442, "bandit_mean_same_seeds": 0.3442, "E2_diff": 0.0, "E2_ci": [0.0, 0.0], "E2_supported": true, "E3_rho_margin_vs_time": null, "E3_ci": null, "E3_supported": false, "E3_note": "all 20750 test flights arrived at 0.36 s (4 ms frames)"}, "real": {"seeds": 50, "flights": 196903, "E1_fidelity": 1.0, "E1_supported": true, "no_feeder": 0, "reached_other": 0, "embodied_mean": 0.3566, "bandit_mean_same_seeds": 0.3566, "E2_diff": 0.0, "E2_ci": [0.0, 0.0], "E2_supported": true, "E3_rho_margin_vs_time": null, "E3_ci": null, "E3_supported": false, "E3_note": "all 20750 test flights arrived at 0.36 s (4 ms frames)"}, "uni": {"seeds": 50, "flights": 197753, "E1_fidelity": 1.0, "E1_supported": true, "no_feeder": 0, "reached_other": 0, "embodied_mean": 0.3552, "bandit_mean_same_seeds": 0.3552, "E2_diff": 0.0, "E2_ci": [0.0, 0.0], "E2_supported": true, "E3_rho_margin_vs_time": null, "E3_ci": null, "E3_supported": false, "E3_note": "all 20750 test flights arrived at 0.36 s (4 ms frames)"}}

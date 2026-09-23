@@ -11,6 +11,7 @@ import type { Smell } from "../fly";
 import { Arena, PERCH_Y } from "./arena";
 import { BrainCam } from "./braincam";
 import { FlyBody } from "./flybody";
+import { PhysicsReplay, loadPhysics, type PhysicsFlight } from "./physics-replay";
 import { Joystick } from "./joystick";
 import { flightInputFromKeys, isFlightKey, resting, stepFlight, type FlightState } from "./pilot";
 
@@ -33,11 +34,12 @@ type Phase = "idle" | "release" | "sniff" | "fly" | "land" | "verdict";
 
 async function main() {
   const p = new Progress((l, t) => ($("bar-fill").style.width = `${Math.min(100, (100 * l) / Math.max(t, 1))}%`));
-  const [fly, learning, phase2, body] = await Promise.all([
+  const [fly, learning, phase2, body, physicsData] = await Promise.all([
     loadModel(p),
     loadLearning(p),
     fetch("./data/phase2.json").then((r) => r.json() as Promise<{ receptor_technique: number[] }>),
     FlyBody.load(p, FLY_SCALE),
+    loadPhysics(),
   ]);
   const names = fly.meta.techniques;
   const arena = new Arena($("stage"), names, TECH_COLORS);
@@ -58,7 +60,9 @@ async function main() {
   let target = -1;
   const tried = new Set<number>();
   let path: { from: THREE.Vector3; to: THREE.Vector3; dur: number; cast: number } | null = null;
-  let who: "brain" | "you" = "brain";
+  let who: "brain" | "you" | "physics" = "brain";
+  const replay = physicsData ? new PhysicsReplay(physicsData, PERCH_Y + 10) : null;
+  let replayJudged = false;
   const youScore = { first: 0, total: 0 };
   const brainScore = { first: 0, total: 0 };
   let jolt = 0;
@@ -222,16 +226,57 @@ async function main() {
   $("about-close").addEventListener("click", () => about.close());
   const phaseIdle = () => phase === "idle" || (phase === "verdict" && finished && phaseT > 1.2);
 
-  const setWho = (next: "brain" | "you") => {
+  const setWho = (next: "brain" | "you" | "physics") => {
     if (next === who) return;
+    const wasPhysics = who === "physics";
     who = next;
     for (const b of document.querySelectorAll<HTMLButtonElement>("#who button")) b.classList.toggle("on", b.dataset.who === who);
+    $("physics-panel").hidden = who !== "physics";
+    if (wasPhysics) {
+      body.root.quaternion.identity();
+      body.feed = 0;
+      for (const f of arena.feeders) f.highlight(false);
+      problem = null;
+      setPhase("idle");
+      syncFlightFromBody();
+    }
+    if (who === "physics") {
+      problem = null;
+      if (physicsData) playFlight(physicsData.flights[0]);
+    }
     if (who === "brain" && problem && phase !== "verdict" && phase !== "land") flyTo(choose());
   };
   $("who").addEventListener("click", (e) => {
     const w = (e.target as HTMLElement).dataset.who;
-    if (w === "brain" || w === "you") setWho(w);
+    if (w === "brain" || w === "you" || w === "physics") setWho(w);
   });
+
+  // ---------- physics replays ----------
+  function playFlight(f: PhysicsFlight) {
+    if (!replay || !physicsData) return;
+    replay.play(f);
+    replayJudged = false;
+    body.feed = 0;
+    for (const fd of arena.feeders) fd.highlight(false);
+    arena.feeders[f.goal].highlight(true);
+    const style = f.margin > 0.35 ? "surges" : "casts, because it is unsure";
+    caption(`<b>${esc(f.title)}</b>: its brain picks <b style="color:${TECH_COLORS[f.goal]}">${esc(names[f.goal])}</b> and ${style}. <span class="muted">${esc(f.label)}</span>`);
+    const k = String(physicsData.flights.indexOf(f));
+    for (const b of document.querySelectorAll<HTMLButtonElement>("#physics-list button")) b.classList.toggle("on", b.dataset.k === k);
+  }
+  if (physicsData && replay) {
+    document.querySelector<HTMLButtonElement>('#who button[data-who="physics"]')!.disabled = false;
+    $("physics-list").innerHTML = physicsData.flights
+      .map((f, k) => `<button data-k="${k}" title="${esc(f.title)}">${esc(f.label)} ${f.reached < 0 ? "·" : f.correct ? "✓" : "✗"}</button>`)
+      .join("");
+    $("physics-list").addEventListener("click", (e) => {
+      const k = (e.target as HTMLElement).dataset.k;
+      if (k !== undefined) playFlight(physicsData.flights[Number(k)]);
+    });
+    $("physics-summary").innerHTML = Object.entries(physicsData.summary)
+      .map(([k, v]) => `${esc(k)}: <b>${esc(String(v))}</b>`)
+      .join(" · ");
+  }
   const typing = () =>
     document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
   window.addEventListener("keydown", (e) => {
@@ -285,7 +330,36 @@ async function main() {
     const joy = stick.input();
     if (joy.thrust || joy.yaw || joy.climb) setWho("you");
 
-    if (!STUDIO && who === "you") {
+    if (!STUDIO && who === "physics" && replay) {
+      const f = replay.current;
+      const r = f && !replay.done ? replay.step(dt) : null;
+      if (r) {
+        pos.copy(r.pos);
+        body.flight = 1;
+        body.beatScale = 1;
+      } else if (f && replay.done) {
+        // scripted touchdown on the feeder the physics actually reached, then sugar or a shock
+        if (!replayJudged) {
+          replayJudged = true;
+          if (f.reached >= 0) {
+            const fd = arena.feeders[f.reached];
+            landAt.copy(fd.landing(pos, body.footDrop));
+            if (f.correct) arena.sparks.burst(fd.top.clone(), new THREE.Color(1, 0.82, 0.35), 90, 20, 45);
+            else arena.sparks.burst(fd.top.clone(), new THREE.Color(0.45, 0.7, 1), 120, 34, 25);
+            cam.dopamine(f.correct ? "PAM" : "PPL1", clock);
+            const miss = f.reached !== f.goal ? ` (it aimed for ${esc(names[f.goal])})` : "";
+            const when = f.t_arrive === null ? "" : ` in ${f.t_arrive.toFixed(2)} s of real flight`;
+            caption(`Reached <b style="color:${TECH_COLORS[f.reached]}">${esc(names[f.reached])}</b>${miss}${when}: ` +
+              (f.correct ? `<b style="color:#ffd166">sugar</b>, reward dopamine (PAM).` : `<b style="color:#ff5c75">shock</b>, punishment dopamine (PPL1).`));
+          } else caption(`It reached no feeder: no dopamine, and the try is used up.`);
+        }
+        if (f.reached >= 0) {
+          pos.lerp(landAt, 1 - Math.exp(-dt * 3));
+          body.flight += (0 - body.flight) * (1 - Math.exp(-dt * 5));
+          body.feed += ((f.correct ? 1 : 0) - body.feed) * (1 - Math.exp(-dt * 4));
+        }
+      }
+    } else if (!STUDIO && who === "you") {
       const step = stepFlight(flight, stick.add(flightInputFromKeys(keys)), dt, {
         surfaces: arena.surfaces(),
         footDrop: body.footDrop,
@@ -392,15 +466,29 @@ async function main() {
     } else if (who === "brain") bank *= 0.95;
     jolt *= Math.exp(-dt * 4);
     body.root.position.copy(pos);
-    body.root.rotation.set(0, 0, 0);
-    body.root.rotateY(heading + (REDUCED ? 0 : jolt * Math.sin(clock * 60) * 0.3));
-    body.root.rotateX(bank);
-    // the pilot owns pitch while the player flies; the brain's path keeps the old hover pose
-    if (who === "brain") {
-      const pitchGoal = body.flight > 0.5 ? (phase === "fly" ? 0.3 : 0.55) : 0;
-      pitch += (pitchGoal - pitch) * (1 - Math.exp(-dt * 3));
+    const recorded = who === "physics" && replay?.current ? replay.current : null;
+    if (recorded && replay) {
+      if (!replay.done) {
+        const q = replay.step(0); // the recorded body orientation, slerped between samples
+        if (q) body.root.quaternion.copy(q.quat);
+      } else {
+        // after touchdown: level out on its last heading
+        const [w, x, y, z] = recorded.quat[recorded.quat.length - 1];
+        const yaw = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+        const level = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        body.root.quaternion.slerp(level, 1 - Math.exp(-dt * 4));
+      }
+    } else {
+      body.root.rotation.set(0, 0, 0);
+      body.root.rotateY(heading + (REDUCED ? 0 : jolt * Math.sin(clock * 60) * 0.3));
+      body.root.rotateX(bank);
+      // the pilot owns pitch while the player flies; the brain's path keeps the old hover pose
+      if (who === "brain") {
+        const pitchGoal = body.flight > 0.5 ? (phase === "fly" ? 0.3 : 0.55) : 0;
+        pitch += (pitchGoal - pitch) * (1 - Math.exp(-dt * 3));
+      }
+      body.root.rotateZ(pitch);
     }
-    body.root.rotateZ(pitch);
     body.update(dt);
 
     // follow-orbit: the target stays on the fly, so a drag or a zoom changes the offset and keeps working

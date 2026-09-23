@@ -1,0 +1,339 @@
+{
+ "host": "ip-172-31-0-215.ec2.internal",
+ "machine": "x86_64",
+ "started": "2026-09-23 08:37:30",
+ "data_tree": [
+  "datasets_flight-imitation/",
+  "datasets_flight-imitation/flight-dataset_saccade-evasion_augmented.hdf5 14.3 MB",
+  "datasets_flight-imitation/wing_pattern_fmech.npy 0.0 MB",
+  "datasets_flight-imitation.zip 12.9 MB",
+  "flight-controller-reuse-checkpoints/",
+  "flight-controller-reuse-checkpoints/checkpoints/",
+  "flight-controller-reuse-checkpoints/checkpoints/high-level-controllers/",
+  "flight-controller-reuse-checkpoints/checkpoints/high-level-controllers/.ipynb_checkpoints/",
+  "flight-controller-reuse-checkpoints/checkpoints/high-level-controllers/bumps-task/",
+  "flight-controller-reuse-checkpoints/checkpoints/high-level-controllers/trench-task/",
+  "flight-controller-reuse-checkpoints/checkpoints/low-level-controller/",
+  "flight-controller-reuse-checkpoints/checkpoints/low-level-controller/ckpt-11.data-00000-of-00002 0.0 MB",
+  "flight-controller-reuse-checkpoints/checkpoints/low-level-controller/ckpt-11.data-00001-of-00002 10.3 MB",
+  "flight-controller-reuse-checkpoints/checkpoints/low-level-controller/ckpt-11.index 0.0 MB",
+  "flight-controller-reuse-checkpoints/snapshots/",
+  "flight-controller-reuse-checkpoints/snapshots/.ipynb_checkpoints/",
+  "flight-controller-reuse-checkpoints/snapshots/bumps-policy-59/",
+  "flight-controller-reuse-checkpoints/snapshots/bumps-policy-59/assets/",
+  "flight-controller-reuse-checkpoints/snapshots/bumps-policy-59/saved_model.pb 0.2 MB",
+  "flight-controller-reuse-checkpoints/snapshots/bumps-policy-59/variables/",
+  "flight-controller-reuse-checkpoints/snapshots/trench-policy-47/",
+  "flight-controller-reuse-checkpoints/snapshots/trench-policy-47/assets/",
+  "flight-controller-reuse-checkpoints/snapshots/trench-policy-47/saved_model.pb 0.2 MB",
+  "flight-controller-reuse-checkpoints/snapshots/trench-policy-47/variables/",
+  "flight-controller-reuse-checkpoints.zip 32.0 MB",
+  "trained-fly-policies/",
+  "trained-fly-policies/flight/",
+  "trained-fly-policies/flight/assets/",
+  "trained-fly-policies/flight/saved_model.pb 0.1 MB",
+  "trained-fly-policies/flight/variables/",
+  "trained-fly-policies/flight/variables/variables.data-00000-of-00001 0.7 MB",
+  "trained-fly-policies/flight/variables/variables.index 0.0 MB",
+  "trained-fly-policies/vision-bumps/",
+  "trained-fly-policies/vision-bumps/assets/",
+  "trained-fly-policies/vision-bumps/saved_model.pb 0.1 MB",
+  "trained-fly-policies/vision-bumps/variables/",
+  "trained-fly-policies/vision-bumps/variables/variables.data-00000-of-00001 0.7 MB",
+  "trained-fly-policies/vision-bumps/variables/variables.index 0.0 MB",
+  "trained-fly-policies/vision-trench/",
+  "trained-fly-policies/vision-trench/assets/",
+  "trained-fly-policies/vision-trench/saved_model.pb 0.1 MB",
+  "trained-fly-policies/vision-trench/variables/",
+  "trained-fly-policies/vision-trench/variables/variables.data-00000-of-00001 0.7 MB",
+  "trained-fly-policies/vision-trench/variables/variables.index 0.0 MB",
+  "trained-fly-policies/walking/",
+  "trained-fly-policies/walking/assets/",
+  "trained-fly-policies/walking/saved_model.pb 0.1 MB",
+  "trained-fly-policies/walking/variables/",
+  "trained-fly-policies/walking/variables/variables.data-00000-of-00001 4.9 MB",
+  "trained-fly-policies/walking/variables/variables.index 0.0 MB",
+  "trained-fly-policies.zip 6.5 MB"
+ ],
+ "dataset": "/opt/leetfly/flybody-data/datasets_flight-imitation/flight-dataset_saccade-evasion_augmented.hdf5",
+ "dataset_stats": {
+  "keys_sample": [
+   "data_source_refs",
+   "timestep_seconds",
+   "trajectories",
+   "trajectories/000",
+   "trajectories/000/com_qpos",
+   "trajectories/000/com_qvel",
+   "trajectories/000/trajectory_type",
+   "trajectories/001",
+   "trajectories/001/com_qpos",
+   "trajectories/001/com_qvel",
+   "trajectories/001/trajectory_type",
+   "trajectories/002",
+   "trajectories/002/com_qpos",
+   "trajectories/002/com_qvel",
+   "trajectories/002/trajectory_type",
+   "trajectories/003",
+   "trajectories/003/com_qpos",
+   "trajectories/003/com_qvel",
+   "trajectories/003/trajectory_type",
+   "trajectories/004"
+  ],
+  "n_trajectories": 272,
+  "duration_s": {
+   "5": 0.082,
+   "25": 0.117,
+   "50": 0.177,
+   "75": 0.24,
+   "95": 0.361
+  },
+  "speed_cm_s": {
+   "5": 4.074,
+   "25": 8.967,
+   "50": 12.86,
+   "75": 17.9,
+   "95": 32.327
+  },
+  "yaw_rate_rad_s": {
+   "5": 0.546,
+   "25": 2.854,
+   "50": 6.435,
+   "75": 13.425,
+   "95": 44.041
+  },
+  "height_cm": {
+   "5": 0.506,
+   "25": 0.582,
+   "50": 0.736,
+   "75": 1.022,
+   "95": 1.681
+  },
+  "pitch_deg": {
+   "5": -58.228,
+   "25": -51.404,
+   "50": -47.584,
+   "75": -44.068,
+   "95": -34.777
+  }
+ },
+ "policy": "/opt/leetfly/flybody-data/trained-fly-policies/flight",
+ "dataset_tracking": {
+  "0.0": [
+   {
+    "steps": 946,
+    "err_mean_cm": 0.0465,
+    "wall_s": 4.82
+   },
+   {
+    "steps": 1135,
+    "err_mean_cm": 0.0474,
+    "wall_s": 5.51
+   },
+   {
+    "steps": 1029,
+    "err_mean_cm": 0.0322,
+    "wall_s": 5.0
+   },
+   {
+    "steps": 1369,
+    "err_mean_cm": 0.0366,
+    "wall_s": 6.69
+   },
+   {
+    "steps": 1473,
+    "err_mean_cm": 0.0286,
+    "wall_s": 7.17
+   },
+   {
+    "steps": 399,
+    "err_mean_cm": 0.0335,
+    "wall_s": 1.95
+   },
+   {
+    "steps": 567,
+    "err_mean_cm": 0.03,
+    "wall_s": 2.76
+   },
+   {
+    "steps": 880,
+    "err_mean_cm": 0.0263,
+    "wall_s": 4.29
+   }
+  ],
+  "0.0002": [
+   {
+    "steps": 946,
+    "err_mean_cm": 0.0511,
+    "wall_s": 4.69
+   },
+   {
+    "steps": 1135,
+    "err_mean_cm": 0.038,
+    "wall_s": 5.58
+   },
+   {
+    "steps": 1029,
+    "err_mean_cm": 0.0335,
+    "wall_s": 5.03
+   },
+   {
+    "steps": 1369,
+    "err_mean_cm": 0.057,
+    "wall_s": 6.69
+   },
+   {
+    "steps": 1473,
+    "err_mean_cm": 0.0519,
+    "wall_s": 7.18
+   },
+   {
+    "steps": 399,
+    "err_mean_cm": 0.0425,
+    "wall_s": 1.95
+   },
+   {
+    "steps": 567,
+    "err_mean_cm": 0.0225,
+    "wall_s": 2.79
+   },
+   {
+    "steps": 880,
+    "err_mean_cm": 0.0372,
+    "wall_s": 4.3
+   }
+  ]
+ },
+ "joint_filter": 0.0,
+ "synthetic": {
+  "straight_10": {
+   "steps": 4994,
+   "sim_s": 0.999,
+   "wall_s": 24.09,
+   "wall_per_sim_s": 24.1,
+   "err_mean_cm": 0.0084,
+   "err_first_40pct": 0.0087,
+   "err_last_cm": 0.0081,
+   "err_max_cm": 0.0172,
+   "height_ok": true,
+   "end_xyz": [
+    9.968,
+    -0.002,
+    0.736
+   ]
+  },
+  "straight_20": {
+   "steps": 4994,
+   "sim_s": 0.999,
+   "wall_s": 24.24,
+   "wall_per_sim_s": 24.3,
+   "err_mean_cm": 0.027,
+   "err_first_40pct": 0.0265,
+   "err_last_cm": 0.0269,
+   "err_max_cm": 0.0361,
+   "height_ok": true,
+   "end_xyz": [
+    19.903,
+    0.019,
+    0.724
+   ]
+  },
+  "straight_30": {
+   "steps": 4994,
+   "sim_s": 0.999,
+   "wall_s": 24.3,
+   "wall_per_sim_s": 24.3,
+   "err_mean_cm": 0.0539,
+   "err_first_40pct": 0.0484,
+   "err_last_cm": 0.0574,
+   "err_max_cm": 0.0886,
+   "height_ok": true,
+   "end_xyz": [
+    29.82,
+    0.001,
+    0.715
+   ]
+  },
+  "straight_40": {
+   "steps": 1377,
+   "sim_s": 0.275,
+   "wall_s": 6.72,
+   "wall_per_sim_s": 24.4,
+   "err_mean_cm": 0.1485,
+   "err_first_40pct": 0.0648,
+   "err_last_cm": 0.9317,
+   "err_max_cm": 0.9317,
+   "height_ok": true,
+   "end_xyz": [
+    10.448,
+    0.652,
+    0.26
+   ]
+  },
+  "cast_margin_0.0": {
+   "steps": 4994,
+   "sim_s": 0.999,
+   "wall_s": 24.49,
+   "wall_per_sim_s": 24.5,
+   "err_mean_cm": 0.029,
+   "err_first_40pct": 0.0319,
+   "err_last_cm": 0.0288,
+   "err_max_cm": 0.0495,
+   "height_ok": true,
+   "end_xyz": [
+    19.903,
+    0.02,
+    0.724
+   ]
+  },
+  "cast_margin_0.15": {
+   "steps": 4994,
+   "sim_s": 0.999,
+   "wall_s": 24.51,
+   "wall_per_sim_s": 24.5,
+   "err_mean_cm": 0.0285,
+   "err_first_40pct": 0.0294,
+   "err_last_cm": 0.0272,
+   "err_max_cm": 0.048,
+   "height_ok": true,
+   "end_xyz": [
+    19.903,
+    0.019,
+    0.724
+   ]
+  },
+  "cast_margin_0.3": {
+   "steps": 4994,
+   "sim_s": 0.999,
+   "wall_s": 24.25,
+   "wall_per_sim_s": 24.3,
+   "err_mean_cm": 0.0279,
+   "err_first_40pct": 0.0284,
+   "err_last_cm": 0.0277,
+   "err_max_cm": 0.0414,
+   "height_ok": true,
+   "end_xyz": [
+    19.904,
+    0.019,
+    0.723
+   ]
+  },
+  "replan_turn_to_10_10": {
+   "steps": 762,
+   "sim_s": 0.152,
+   "wall_s": 3.75,
+   "wall_per_sim_s": 24.6,
+   "err_mean_cm": 0.1233,
+   "err_first_40pct": 0.0253,
+   "err_last_cm": 0.6226,
+   "err_max_cm": 0.6226,
+   "height_ok": true,
+   "end_xyz": [
+    2.423,
+    0.645,
+    0.231
+   ],
+   "closest_to_goal_cm": 12.038
+  }
+ },
+ "finished": "2026-09-23 08:41:55"
+}
