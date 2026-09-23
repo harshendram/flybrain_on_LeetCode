@@ -35,7 +35,11 @@
         <span class="tagline">a real fruit fly flies to the algorithm it smells</span>
       </div>
       <div class="top-actions">
-        <a class="ghost-link" href="./index.html">← Inside its brain</a>
+        <nav class="site-nav" aria-label="Pages">
+          <a href="./index.html">Learning brain</a>
+          <a href="./anatomy.html">Anatomy</a>
+          <a href="./fly.html" aria-current="page">Fly</a>
+        </nav>
         <button id="about-open" class="ghost">About</button>
       </div>
     </header>
@@ -44,9 +48,13 @@
       <section>
         <h2>Give the fly a problem</h2>
         <p class="lede">
-          Its mushroom body smells the problem and votes for a technique. It then flies there: straight when it's sure,
-          zig-zagging when it isn't.
+          Its mushroom body smells the problem and votes for a technique. Let the brain fly, or take the controls.
         </p>
+        <div class="seg who" role="group" aria-label="Who flies" id="who">
+          <button type="button" data-who="brain" class="on">Its brain</button>
+          <button type="button" data-who="you">You</button>
+        </div>
+        <p class="hint" id="hint">W A S D to fly · Space up · Shift down. On a phone, use the stick.</p>
         <div class="chips" id="examples"></div>
         <button id="real" class="primary">Draw a real LeetCode problem</button>
         <details class="paste">

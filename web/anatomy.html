@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>LeetFly Anatomy</title>
+    <meta
+      name="description"
+      content="The female fruit fly's brain, region by region: 78 real neuropil surfaces from the FlyWire connectome, with the neurons inside them."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="LeetFly: a real fruit-fly brain, region by region" />
+    <meta
+      property="og:description"
+      content="78 neuropils of a female fruit fly, translucent and labelled. Click a region to see the real neurons inside it."
+    />
+    <meta property="og:image" content="%SITE_URL%og-anatomy.png" />
+    <meta property="og:url" content="%SITE_URL%anatomy.html" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="%SITE_URL%og-anatomy.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap"
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%2303040a' stroke='%2393c5fd' stroke-width='8'/></svg>" />
+  </head>
+  <body class="anatomy-page">
+    <div id="stage"></div>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">LeetFly</span>
+        <span class="tagline">the female fly's brain, region by region</span>
+      </div>
+      <div class="top-actions">
+        <nav class="site-nav" aria-label="Pages">
+          <a href="./index.html">Learning brain</a>
+          <a href="./anatomy.html" aria-current="page">Anatomy</a>
+          <a href="./fly.html">Fly</a>
+        </nav>
+        <button id="about-open" class="ghost">About</button>
+      </div>
+    </header>
+
+    <aside class="panel" id="panel">
+      <section>
+        <h2>Neuropils</h2>
+        <p class="lede">The female brain from FlyWire. Click a region, or follow a smell from the antenna to the mushroom body.</p>
+        <button id="tour" class="primary">Follow a smell</button>
+        <input id="search" class="region-search" placeholder="Search regions" autocomplete="off" />
+        <div class="seg" role="group" aria-label="Side" id="side">
+          <button type="button" data-side="both" class="on">Both</button>
+          <button type="button" data-side="left">Left</button>
+          <button type="button" data-side="right">Right</button>
+        </div>
+        <label class="hint"><input type="checkbox" id="somas" checked /> Soma cloud</label>
+        <label class="hint"><input type="checkbox" id="neurons" checked /> Neurons in the selection</label>
+        <div id="list"></div>
+      </section>
+      <section class="card" id="card" hidden>
+        <h2 id="card-title"></h2>
+        <p class="about" id="card-about"></p>
+        <p class="mono" id="card-stats"></p>
+        <p id="card-types"></p>
+        <p><a href="./index.html">Watch this circuit learn →</a></p>
+      </section>
+    </aside>
+
+    <div class="hover-label" id="hover" hidden></div>
+    <canvas class="orient" id="orient" width="168" height="168" aria-hidden="true"></canvas>
+    <div class="scalebar" id="scalebar"><div class="bar-line"></div><div class="bar-label"></div></div>
+
+    <div class="loading" id="loading">
+      <div class="loading-inner">
+        <div class="logo">LeetFly</div>
+        <p>Loading the brain…</p>
+        <div class="bar"><div id="bar-fill"></div></div>
+      </div>
+    </div>
+
+    <dialog id="about">
+      <h2>What am I looking at?</h2>
+      <p>
+        These are the <b>78 neuropils</b> of a female fruit fly, the JFRC2 template surfaces transformed into FlyWire
+        space (Ito et al. 2014, via the FlyWire project). The faint shell is FlyWire's own whole-brain outline. Dots are
+        the somas of 118,104 proofread neurons.
+      </p>
+      <p>
+        Click a region and the neurons drawn inside it are real cells from FlyWire v783, chosen as the ones with the
+        most synapses there, each a different cell type. Spikes running along them are a visualisation, not a recording.
+      </p>
+      <p>
+        LeetFly's learning model uses three of these regions: the <b>antennal lobe</b> (the smell arrives), the
+        <b>mushroom body</b> (Kenyon cells learn), and it leaves the <b>lateral horn</b> (innate smell) alone.
+      </p>
+      <p class="credits">
+        Meshes: Ito et al. 2014, transformed by the FlyWire / fafbseg project. Neurons and somas: FlyWire v783, Dorkenwald
+        et al. and Schlegel et al. 2024, CC-BY 4.0. Not affiliated with LeetCode.
+      </p>
+      <button id="about-close" class="primary">Back to the brain</button>
+    </dialog>
+    <script type="module" src="/src/anatomy/main.ts"></script>
+  </body>
+</html>

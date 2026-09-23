@@ -4,9 +4,17 @@ A real fruit-fly **mushroom body**, wired from electron-microscopy connectomes, 
 problems. Phase 1 is a working demo. Phase 2 asks a question the 2026 connectomes made answerable for the first
 time: **which parts of a fly's brain wiring can evolution actually use?**
 
-- Demo (private claude.ai previews for now): brain https://claude.ai/artifact/4MYq4Ws4pdKm1zisyPK74h ·
-  fly https://claude.ai/artifact/5EGTKhoPvhTGHhzEb5jRPe (built by `scripts/build_artifact.py`)
-- Local: `cd web && npm install && npm run dev`, or deploy it yourself (see [Deploy on Vercel](#deploy-on-vercel))
+## Run locally
+
+```
+cd web && npm install && npm run dev
+```
+
+- Learning brain: http://localhost:5173/
+- Anatomy: http://localhost:5173/anatomy.html
+- Fly: http://localhost:5173/fly.html
+
+If the dev server runs out of memory, `npm run build && npx vite preview --port 4173` serves the same three pages. Hosting is [Vercel](#deploy-on-vercel), from this GitHub repo, with the project root set to `web`.
 
 ## The site
 
@@ -17,11 +25,16 @@ time: **which parts of a fly's brain wiring can evolution actually use?**
   - **Watch it learn**: the naive fly learns all 1,658 training problems with the exact trial-by-trial dopamine
     rule, and its accuracy on the 415 future problems climbs from 11% (chance) to 40%.
   - **Evolve a nose** and **Nose transplant**: the Phase 2 results.
-- **Fly** (`fly.html`). The anatomically real *flybody* fly (legs, wings, proboscis) in an arena of 14 "technique"
-  feeders. A problem becomes an odour plume and the same mushroom body votes:
+- **Anatomy** (`anatomy.html`). The female brain from FlyWire: 78 neuropil surfaces (Ito et al. 2014, in FlyWire
+  space), the whole-brain outline, and the somas of the proofread neurons. Click a region to see a few real
+  cells from that neuropil, each a different cell type. "Follow a smell" walks antennal lobe → calyx → vertical
+  lobe → lateral horn, the path the learning model uses.
+- **Fly** (`fly.html`). The anatomically real *flybody* fly (legs, wings, proboscis) starts on a perch. Pick a
+  problem and either let its mushroom body fly, or take the controls (W A S D, or the on-screen stick). Landing
+  on a feeder is the answer:
   - a confident fly surges straight to its choice, and an unsure one casts (zig-zags) between its top two;
   - on the right feeder it drinks sugar (PAM dopamine), on a wrong one it gets a shock (PPL1) and tries again;
-  - every visit updates its synapses.
+  - every visit updates its synapses. The camera keeps following the fly while you drag and zoom.
 
 ## The fly
 
@@ -217,6 +230,9 @@ in-sample, so the idiosyncratic share is an upper bound.
 - flybody fly model (Apache-2.0), Vaxenburg et al., *Nature* 2025 (Google DeepMind + HHMI Janelia), decimated
   for the web by `scripts/export_flybody.py`: bristles are rebuilt as cones; poses come from the model's joint
   springrefs.
+- Neuropil surfaces on the anatomy page: Ito et al. 2014, transformed into FlyWire space and distributed with
+  the FlyWire project (the `JFRC2NP.surf.fw.zip` data file only; fafbseg itself is GPL and is not vendored).
+  The outline is FlyWire's `brain_mesh_v3`. Neurons and somas are FlyWire v783, CC-BY 4.0.
 - three.js (MIT).
 - LeetCode is a trademark of LeetCode LLC; not affiliated.
 
@@ -229,6 +245,7 @@ python -m leetfly.connectome.extract_mb --dataset malecns hemibrain flywire  # (
 python -m leetfly.experiments.phase1
 python scripts/export_skeletons.py && python scripts/export_web_model.py
 python scripts/export_brain_cloud.py && python scripts/export_learning.py  # whole-brain clouds, learn-mode data
+python scripts/export_anatomy.py                                            # 78 neuropils + featured neurons
 python scripts/export_flybody.py && (cd web && npx @gltf-transform/cli meshopt public/fly/flybody.glb public/fly/flybody.glb)
 python -m leetfly.experiments.evolve --jobs 14                             # Phase 2a
 pytest && (cd web && npm test)
@@ -241,11 +258,11 @@ The site is static: Vite builds `web/` into `web/dist`, with all data under `web
 1. On vercel.com, choose **Add New → Project** and import this GitHub repository.
 2. Set **Root Directory** to `web`. `web/vercel.json` supplies the rest:
    - the Vite preset, `npm ci`, `npm run build` and the `dist` output;
-   - clean URLs, so `/fly` works;
+   - clean URLs, so `/fly` and `/anatomy` work;
    - cache headers for the data.
 3. Deploy. Every push to `main` redeploys.
 
-Link previews use `web/public/og-brain.png` and `og-fly.png`. Vercel exposes the production domain at build time
+Link previews use `web/public/og-brain.png`, `og-fly.png`, and `og-anatomy.png`. Vercel exposes the production domain at build time
 (`VERCEL_PROJECT_PRODUCTION_URL`), and `vite.config.ts` turns the `og:image` / `og:url` tags into absolute URLs
 with it. Other static hosts (GitHub Pages, Netlify) work with the same `dist` folder; there, previews fall back to
 relative URLs.

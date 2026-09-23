@@ -1,4 +1,73 @@
 /* fly page additions on top of the shared style.css */
+.site-nav {
+  display: flex;
+  gap: 2px;
+  background: rgba(8, 12, 24, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 3px;
+}
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.site-nav a[aria-current="page"] {
+  color: var(--text);
+  background: rgba(102, 240, 255, 0.14);
+}
+.who {
+  margin: 10px 0 4px;
+}
+.hint {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin: 0 0 8px;
+}
+.joystick {
+  position: fixed;
+  left: 420px;
+  bottom: calc(20px + var(--safe-bottom));
+  z-index: 6;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  touch-action: none;
+}
+.stick {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: rgba(10, 14, 28, 0.72);
+  border: 1px solid var(--line);
+  position: relative;
+}
+.knob {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ffb35c;
+}
+.climb-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.climb-pad button {
+  width: 40px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(10, 14, 28, 0.78);
+  color: var(--text);
+}
+
 .ghost-link {
   color: var(--text);
   text-decoration: none;
@@ -106,6 +175,14 @@ button.wide {
 }
 
 @media (max-width: 820px) {
+  .joystick {
+    left: 16px;
+    bottom: calc(46vh + 20px + var(--safe-bottom));
+  }
+  .site-nav a {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
   .caption {
     left: 16px;
     right: 16px;

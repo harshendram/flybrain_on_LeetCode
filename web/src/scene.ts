@@ -78,10 +78,19 @@ const CLOUD_VERT = /* glsl */ `
   uniform float uFlashT[${MAX_FLASH}];
   uniform vec3 uFlashColor[${MAX_FLASH}];
   uniform float uSparkle;
+  uniform float uXMin;
+  uniform float uXMax;
   varying vec3 vColor;
   varying float vAlpha;
   float hash(float n) { return fract(sin(n) * 43758.5453123); }
   void main() {
+    if (position.x < uXMin || position.x > uXMax) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      gl_PointSize = 0.0;
+      vColor = vec3(0.0);
+      vAlpha = 0.0;
+      return;
+    }
     vec3 tint = uTint[int(aRegion + 0.5)];
     float slow = 0.75 + 0.25 * sin(uTime * 0.7 + hash(aIndex) * 6.283);
     // sparse spontaneous "spikes": each dot lights up now and then, a different random set every 0.2 s
@@ -120,6 +129,11 @@ export class PointCloud {
   private material: THREE.ShaderMaterial;
   private flashSlot = 0;
 
+  setXRange(min: number, max: number) {
+    this.material.uniforms.uXMin.value = min;
+    this.material.uniforms.uXMax.value = max;
+  }
+
   constructor(cloud: Cloud, toScene: (x: number, y: number, z: number) => [number, number, number], lod = 1) {
     const n = Math.ceil(cloud.meta.n / lod);
     const pos = new Float32Array(3 * n);
@@ -149,6 +163,8 @@ export class PointCloud {
         uFlashT: { value: new Array(MAX_FLASH).fill(-99) },
         uFlashColor: { value: Array.from({ length: MAX_FLASH }, () => new THREE.Vector3(1, 1, 1)) },
         uSparkle: { value: REDUCED_MOTION ? 0 : 0.004 },
+        uXMin: { value: -1e9 },
+        uXMax: { value: 1e9 },
       },
       transparent: true,
       depthWrite: false,

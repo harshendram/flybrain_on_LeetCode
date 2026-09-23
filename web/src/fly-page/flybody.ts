@@ -45,6 +45,8 @@ export class FlyBody {
   private ghosts: { node: THREE.Object3D; body: BodyRig; lag: number }[] = [];
   /** 0 = standing, 1 = flying (legs tucked, wings beating) */
   flight = 0;
+  /** Multiplier on the wingbeat. 1 is the usual stroke; thrust in manual flight raises it. */
+  beatScale = 1;
   /** 0 = proboscis in, 1 = extended (drinking) */
   feed = 0;
   private t = 0;
@@ -174,7 +176,7 @@ export class FlyBody {
   update(dt: number) {
     this.t += dt;
     const f = this.flight;
-    const beat = this.t * 17;
+    const beat = this.t * 17 * (0.45 + 0.55 * this.beatScale);
     for (const [name] of this.joints) {
       if (isLeg(name)) this.set(name, this.rest(name) * (CROUCH + (1 - CROUCH) * f)); // standing <-> tucked (springref)
       else if (isWing(name)) this.set(name, this.wingAngle(name, beat));

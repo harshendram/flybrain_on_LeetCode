@@ -7,9 +7,12 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import type { Surface } from "./pilot";
 
 export const ARENA_R = 230; // feeder ring radius
 export const PERCH_Y = 26; // top of the centre pedestal
+const PERCH_TOP_R = 16;
+const PERCH_BASE_R = 22;
 
 /** A name tag that stays the same size on screen however far away its feeder is. */
 function labelSprite(text: string, color: string): THREE.Sprite {
@@ -69,8 +72,8 @@ function floorTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-const STAND_H = 22;
-const DISH_R = 24; // room for the fly to stand beside the drop
+export const STAND_H = 22;
+export const DISH_R = 24; // room for the fly to stand beside the drop
 const DROP_R = 7;
 
 /** A feeding station: a pedestal with a flat dish and a glowing sugar drop in the middle. */
@@ -83,6 +86,7 @@ export class Feeder {
   private halo: THREE.Mesh;
   private glow = 0.6;
   private target = 0.6;
+  private instinctOn = false;
 
   constructor(readonly index: number, readonly name: string, readonly color: THREE.Color, angle: number) {
     this.group.position.set(Math.cos(angle) * ARENA_R, 0, Math.sin(angle) * ARENA_R);
@@ -135,6 +139,11 @@ export class Feeder {
     this.target = on ? 1.6 : 0.6;
   }
 
+  /** The brain's current top choice: its ring breathes, a hint while you fly. */
+  instinct(on: boolean) {
+    this.instinctOn = on;
+  }
+
   /** Label height in pixels -> sprite scale (sizeAttenuation off: scale is a fraction of the view height). */
   setLabelSize(px: number, viewHeight: number, fov: number) {
     const s = (px / (viewHeight / 2)) * Math.tan(THREE.MathUtils.degToRad(fov) / 2);
@@ -145,7 +154,8 @@ export class Feeder {
     this.glow += (this.target - this.glow) * (1 - Math.exp(-dt * 5));
     const pulse = 0.92 + 0.08 * Math.sin(t * 3 + this.index);
     (this.drop.material as THREE.MeshPhysicalMaterial).emissiveIntensity = this.glow * pulse;
-    (this.rim.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.5 + 0.9 * this.glow * pulse;
+    const breathe = this.instinctOn ? 1.1 * (0.5 + 0.5 * Math.sin(t * 4.5)) : 0;
+    (this.rim.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.5 + 0.9 * this.glow * pulse + breathe;
     (this.halo.material as THREE.MeshBasicMaterial).opacity = 0.14 + 0.18 * this.glow;
   }
 }
@@ -336,7 +346,7 @@ export class Arena {
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     const perch = new THREE.Mesh(
-      new THREE.CylinderGeometry(16, 22, PERCH_Y, 40),
+      new THREE.CylinderGeometry(PERCH_TOP_R, PERCH_BASE_R, PERCH_Y, 40),
       new THREE.MeshStandardMaterial({ color: 0x1a2140, roughness: 0.35, metalness: 0.7, emissive: 0x0b1a33 }),
     );
     perch.position.y = PERCH_Y / 2;
@@ -374,6 +384,23 @@ export class Arena {
     };
     new ResizeObserver(resize).observe(container);
     resize();
+  }
+
+  /** What the fly can land on or bump into: the centre perch and every feeder dish (the floor is implicit). */
+  surfaces(): Surface[] {
+    const perch: Surface = { kind: "perch", index: -1, x: 0, z: 0, top: PERCH_Y, r: PERCH_TOP_R, side: (PERCH_TOP_R + PERCH_BASE_R) / 2 };
+    return [
+      perch,
+      ...this.feeders.map((f): Surface => ({
+        kind: "feeder",
+        index: f.index,
+        x: f.group.position.x,
+        z: f.group.position.z,
+        top: f.surface,
+        r: DISH_R,
+        side: DISH_R + 3.5,
+      })),
+    ];
   }
 
   render(t: number, dt: number) {

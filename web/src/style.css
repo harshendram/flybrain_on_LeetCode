@@ -158,6 +158,28 @@ textarea {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.site-nav {
+  display: flex;
+  gap: 2px;
+  background: rgba(8, 12, 24, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 3px;
+}
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.site-nav a[aria-current="page"] {
+  color: var(--text);
+  background: rgba(102, 240, 255, 0.14);
 }
 .seg {
   display: inline-flex;
@@ -718,6 +740,14 @@ table.compare tr.on td {
   .top-actions {
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+  .site-nav {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  .site-nav a {
+    padding: 6px 8px;
+    font-size: 12px;
   }
   #modes {
     max-width: 100%;

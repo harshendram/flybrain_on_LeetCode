@@ -1,0 +1,99 @@
+.anatomy-page .panel {
+  width: 340px;
+}
+.anatomy-page .hint {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 6px 0;
+}
+.anatomy-page .pill {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+  color: var(--c);
+  font-size: 12px;
+}
+.region-search {
+  width: 100%;
+  margin: 8px 0;
+}
+.sys {
+  margin-top: 12px;
+}
+.sys h3 {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 4px;
+}
+.region-btn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  padding: 4px 2px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.region-btn.on,
+.region-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.hover-label {
+  position: fixed;
+  pointer-events: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(8, 12, 24, 0.9);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  transform: translate(12px, 12px);
+}
+.card h2 {
+  margin-bottom: 4px;
+}
+.card .about {
+  color: var(--muted);
+}
+.orient {
+  position: fixed;
+  left: 372px;
+  bottom: calc(18px + var(--safe-bottom));
+  width: 84px;
+  height: 84px;
+  pointer-events: none;
+}
+.scalebar {
+  position: fixed;
+  right: 18px;
+  bottom: calc(18px + var(--safe-bottom));
+  color: var(--muted);
+  font-size: 12px;
+}
+.scalebar .bar-line {
+  height: 2px;
+  background: var(--text);
+  margin-bottom: 4px;
+}
+@media (max-width: 820px) {
+  .orient {
+    left: 16px;
+    bottom: calc(46vh + 16px + var(--safe-bottom));
+  }
+}

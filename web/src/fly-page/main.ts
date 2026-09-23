@@ -11,6 +11,8 @@ import type { Smell } from "../fly";
 import { Arena, PERCH_Y } from "./arena";
 import { BrainCam } from "./braincam";
 import { FlyBody } from "./flybody";
+import { Joystick } from "./joystick";
+import { flightInputFromKeys, isFlightKey, resting, stepFlight, type FlightState } from "./pilot";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -56,12 +58,18 @@ async function main() {
   let target = -1;
   const tried = new Set<number>();
   let path: { from: THREE.Vector3; to: THREE.Vector3; dur: number; cast: number } | null = null;
-  let follow = true;
-  let score = { first: 0, total: 0 };
+  let who: "brain" | "you" = "brain";
+  const youScore = { first: 0, total: 0 };
+  const brainScore = { first: 0, total: 0 };
   let jolt = 0;
-  arena.controls.addEventListener("start", () => (follow = false));
+  const keys = new Set<string>();
+  const stick = new Joystick(document.body);
+  const flight: FlightState = resting(body.footDrop);
+  flight.y = PERCH_Y + body.footDrop;
+  const camOffset = new THREE.Vector3(55, 70, 150);
 
   const caption = (html: string) => ($("caption").innerHTML = html);
+  let finished = true;
   const setPhase = (p: Phase) => {
     phase = p;
     phaseT = 0;
@@ -79,8 +87,8 @@ async function main() {
     for (const f of arena.feeders) f.highlight(false);
     const { cols, weights } = receptorColors(pr.smell.receptors);
     arena.plume.release(cols, weights);
-    follow = true;
     $("teach").hidden = true;
+    finished = false;
     renderStatus();
     caption(`Releasing the smell of <b>${esc(pr.title)}</b>`);
     setPhase("release");
@@ -147,8 +155,9 @@ async function main() {
     if (correct) {
       arena.sparks.burst(f.top.clone(), new THREE.Color(1, 0.82, 0.35), 90, 20, 45);
       f.highlight(true);
-      if (tried.size === 1) score.first++;
-      score.total++;
+      const board = who === "you" ? youScore : brainScore;
+      if (tried.size === 1) board.first++;
+      board.total++;
       caption(`<b style="color:#ffd166">Correct!</b> It drinks the sugar: reward dopamine (PAM) strengthens this choice.`);
       renderStatus(true);
       setPhase("verdict");
@@ -159,7 +168,7 @@ async function main() {
       jolt = 1;
       const answer = problem!.truth ? problem!.truth.map((c) => names[c]).join(", ") : "";
       if (tried.size >= 3 || !problem!.truth) {
-        if (problem!.truth) score.total++;
+        if (problem!.truth) (who === "you" ? youScore : brainScore).total++;
         for (const c of problem!.truth ?? []) arena.feeders[c].highlight(true);
         caption(`<b style="color:#ff5c75">Shock!</b> Punishment dopamine (PPL1).${answer ? ` The answer was <b>${esc(answer)}</b>.` : ""}`);
         renderStatus(false);
@@ -173,7 +182,6 @@ async function main() {
       }
     }
   }
-  let finished = true;
 
   function renderStatus(correct?: boolean) {
     if (!problem) return;
@@ -185,9 +193,9 @@ async function main() {
       `<div class="st-title">${title}</div>` +
       (guesses ? `<div class="st-row">flew to ${guesses}${correct === true ? " ✓" : correct === false ? " ✗" : ""}</div>` : "") +
       (problem.truth && correct !== undefined ? `<div class="st-row muted">answer: ${esc(problem.truth.map((c) => names[c]).join(", "))}</div>` : "");
-    $("score").innerHTML = score.total
-      ? `First try: <b>${score.first} / ${score.total}</b> · the brain behind it scores 40% on problems it never saw`
-      : "";
+    const side = (label: string, s: { first: number; total: number }) =>
+      `${label}: <b>${s.first} / ${s.total}</b>`;
+    $("score").innerHTML = `${side("You", youScore)} · ${side("its brain", brainScore)} · 40% on problems the brain never saw`;
   }
 
   // ---------- controls ----------
@@ -210,11 +218,57 @@ async function main() {
   $("about-close").addEventListener("click", () => about.close());
   const phaseIdle = () => phase === "idle" || (phase === "verdict" && finished && phaseT > 1.2);
 
+  const setWho = (next: "brain" | "you") => {
+    if (next === who) return;
+    who = next;
+    for (const b of document.querySelectorAll<HTMLButtonElement>("#who button")) b.classList.toggle("on", b.dataset.who === who);
+    if (who === "brain" && problem && phase !== "verdict" && phase !== "land") flyTo(choose());
+  };
+  $("who").addEventListener("click", (e) => {
+    const w = (e.target as HTMLElement).dataset.who;
+    if (w === "brain" || w === "you") setWho(w);
+  });
+  const typing = () =>
+    document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
+  window.addEventListener("keydown", (e) => {
+    if (typing() || !isFlightKey(e.code)) return;
+    keys.add(e.code);
+    if (e.code === "Space") e.preventDefault();
+    setWho("you");
+  });
+  window.addEventListener("keyup", (e) => keys.delete(e.code));
+  window.addEventListener("blur", () => keys.clear());
+
+  function markInstinct() {
+    const top = problem ? (problem.smell.ranking.find((c) => !tried.has(c)) ?? problem.smell.ranking[0]) : -1;
+    arena.feeders.forEach((f, i) => f.instinct(i === top));
+  }
+
+  function syncFlightFromBody() {
+    flight.x = pos.x;
+    flight.y = pos.y;
+    flight.z = pos.z;
+    flight.heading = heading;
+    flight.speed = 0;
+    flight.vy = 0;
+    const onGround = body.flight < 0.35;
+    flight.grounded = onGround;
+    if (!onGround) {
+      flight.pad = null;
+      return;
+    }
+    const hit = arena.surfaces().find((s) => {
+      const dx = pos.x - s.x;
+      const dz = pos.z - s.z;
+      return dx * dx + dz * dz <= s.r * s.r && Math.abs(pos.y - (s.top + body.footDrop)) < 12;
+    });
+    flight.pad = hit ? hit.kind : "floor";
+    flight.padIndex = hit ? hit.index : -1;
+  }
+
   // ---------- the loop ----------
   let clock = 0;
   let last = performance.now();
-  const camGoal = new THREE.Vector3();
-  const lookGoal = new THREE.Vector3();
   arena.renderer.setAnimationLoop(() => {
     const now = performance.now();
     const dt = Math.min((now - last) / 1000, 0.05);
@@ -223,7 +277,47 @@ async function main() {
     phaseT += dt;
     const prev = pos.clone();
 
-    if (!STUDIO) switch (phase) {
+    markInstinct();
+    const joy = stick.input();
+    if (joy.thrust || joy.yaw || joy.climb) setWho("you");
+
+    if (!STUDIO && who === "you") {
+      const step = stepFlight(flight, stick.add(flightInputFromKeys(keys)), dt, {
+        surfaces: arena.surfaces(),
+        footDrop: body.footDrop,
+      });
+      pos.set(flight.x, flight.y, flight.z);
+      heading = flight.heading;
+      bank = step.bank;
+      body.beatScale = 0.35 + 1.3 * step.wing;
+      body.flight += ((flight.grounded ? 0 : 1) - body.flight) * (1 - Math.exp(-dt * 5));
+      const pitchGoal = step.pitch;
+      pitch += (pitchGoal - pitch) * (1 - Math.exp(-dt * 3));
+      if (phase === "release" && phaseT > 0.8) {
+        setPhase("sniff");
+        cam.show(problem!.smell, clock + 0.6);
+        caption(`Sniffing… <span class="muted">fly it yourself: W takes off, land on the feeder you trust</span>`);
+      }
+      // "land" fires once, on the frame the fly settles. A finished problem ignores later touchdowns;
+      // a wrong guess stays open so the next feeder the player reaches is scored too.
+      if (step.event === "land" && flight.pad === "feeder" && problem && !(finished && phase === "verdict")) {
+        target = flight.padIndex;
+        tried.add(target);
+        landAt.copy(pos);
+        setPhase("land");
+        caption(`Landing on <b style="color:${TECH_COLORS[target]}">${esc(names[target])}</b>`);
+        if (problem.truth) verdict(problem.truth.includes(target));
+        else if ($("teach").hidden) {
+          $("teach").hidden = false;
+          caption(`Is <b>${esc(names[target])}</b> right? Teach it with sugar or a shock.`);
+        }
+      }
+      if (phase === "verdict") {
+        const correct = problem?.truth?.includes(target) ?? false;
+        body.feed += ((correct ? 1 : 0) - body.feed) * (1 - Math.exp(-dt * 4));
+        if (finished && phaseT > 6 && correct) body.feed += (0 - body.feed) * (1 - Math.exp(-dt * 2));
+      }
+    } else if (!STUDIO) switch (phase) {
       case "idle":
         body.flight += (0 - body.flight) * (1 - Math.exp(-dt * 3));
         break;
@@ -278,49 +372,59 @@ async function main() {
         break;
       }
     }
+    if (who === "brain") {
+      syncFlightFromBody();
+      body.beatScale = 1;
+    }
 
-    // orientation: face the direction of travel, bank into turns
+    // orientation: face the direction of travel, bank into turns (the pilot sets these itself)
     const v = pos.clone().sub(prev);
-    if (v.lengthSq() > 1e-4) {
+    if (who === "brain" && v.lengthSq() > 1e-4) {
       const want = Math.atan2(-v.z, v.x);
       let d = want - heading;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       heading += d * (1 - Math.exp(-dt * 6));
       bank += (Math.max(-0.6, Math.min(0.6, -d * 3)) - bank) * (1 - Math.exp(-dt * 4));
-    } else bank *= 0.95;
+    } else if (who === "brain") bank *= 0.95;
     jolt *= Math.exp(-dt * 4);
     body.root.position.copy(pos);
     body.root.rotation.set(0, 0, 0);
     body.root.rotateY(heading + (REDUCED ? 0 : jolt * Math.sin(clock * 60) * 0.3));
     body.root.rotateX(bank);
-    // nose up in the air (flybody hovers at 47.5 degrees), level on the ground
-    const pitchGoal = body.flight > 0.5 ? (phase === "fly" ? 0.3 : 0.55) : 0;
-    pitch += (pitchGoal - pitch) * (1 - Math.exp(-dt * 3));
+    // the pilot owns pitch while the player flies; the brain's path keeps the old hover pose
+    if (who === "brain") {
+      const pitchGoal = body.flight > 0.5 ? (phase === "fly" ? 0.3 : 0.55) : 0;
+      pitch += (pitchGoal - pitch) * (1 - Math.exp(-dt * 3));
+    }
     body.root.rotateZ(pitch);
     body.update(dt);
 
-    // camera: follow the fly while it works, orbit when idle
-    if (STUDIO) {
-      // camera and pose are driven from the console
-    } else if (follow && phase !== "idle") {
-      const back = new THREE.Vector3(Math.cos(heading), 0, -Math.sin(heading));
-      const zoom = Math.min(2, Math.max(1, 1.05 / arena.camera.aspect)); // portrait screens see less sideways
-      if (phase === "fly") camGoal.copy(pos).addScaledVector(back, -105 * zoom).add(new THREE.Vector3(0, 34 * zoom, 0));
-      else if (phase === "release" || phase === "sniff") camGoal.copy(pos).add(new THREE.Vector3(70, 24, 92).multiplyScalar(zoom));
-      else camGoal.copy(pos).add(new THREE.Vector3(Math.cos(clock * 0.3) * 95, 48, Math.sin(clock * 0.3) * 95).multiplyScalar(zoom));
-      lookGoal.copy(pos).add(new THREE.Vector3(0, 8, 0));
-      arena.camera.position.lerp(camGoal, 1 - Math.exp(-dt * 2.2));
-      arena.controls.target.lerp(lookGoal, 1 - Math.exp(-dt * 3));
-    } else if (phase === "idle") {
-      arena.controls.autoRotate = !REDUCED;
-      arena.controls.autoRotateSpeed = 0.4;
+    // follow-orbit: the target stays on the fly, so a drag or a zoom changes the offset and keeps working
+    if (!STUDIO) {
+      const look = pos.clone().add(new THREE.Vector3(0, 8, 0));
+      arena.controls.autoRotate = !REDUCED && phase === "idle" && who === "brain";
+      arena.controls.autoRotateSpeed = 0.35;
+      arena.controls.target.copy(look);
+      arena.camera.position.copy(look).add(camOffset);
     }
     arena.render(clock, dt);
+    camOffset.copy(arena.camera.position).sub(arena.controls.target);
     cam.draw(clock);
+    (window as unknown as { __fly: () => unknown }).__fly = () => ({
+      x: pos.x,
+      y: pos.y,
+      z: pos.z,
+      who,
+      phase,
+      grounded: flight.grounded,
+      cam: camOffset.toArray(),
+    });
   });
 
-  // open with a problem already in the air
-  if (!STUDIO) setTimeout(() => start(fromExample(0)), 900);
+  arena.camera.position.set(55, 90, 160);
+  arena.controls.target.set(0, PERCH_Y + 10, 0);
+  camOffset.copy(arena.camera.position).sub(arena.controls.target);
+  if (!STUDIO) caption(`Pick a problem, then let its brain fly, or take the controls <span class="muted">(W A S D)</span>`);
 }
 
 main().catch((err) => {
