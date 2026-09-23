@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { fetchBinary, type Progress } from "../data";
 
 interface RigJoint {
   name: string;
@@ -67,10 +68,11 @@ export class FlyBody {
     this.footDrop = -new THREE.Box3().setFromObject(this.root, true).min.y;
   }
 
-  static async load(glbUrl: string, rigUrl: string, scale: number): Promise<FlyBody> {
+  static async load(p: Progress, scale: number, base = "./fly/"): Promise<FlyBody> {
     const loader = new GLTFLoader();
     loader.setMeshoptDecoder(MeshoptDecoder);
-    const [gltf, rig] = await Promise.all([loader.loadAsync(glbUrl), fetch(rigUrl).then((r) => r.json())]);
+    const [glb, rig] = await Promise.all([fetchBinary("flybody.glb", p, base), fetch(`${base}rig.json`).then((r) => r.json())]);
+    const gltf = await loader.parseAsync(glb, base);
     return new FlyBody(gltf.scene, rig, scale);
   }
 

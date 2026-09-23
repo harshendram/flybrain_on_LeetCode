@@ -35,7 +35,7 @@ async function main() {
     loadModel(p),
     loadLearning(p),
     fetch("./data/phase2.json").then((r) => r.json() as Promise<{ receptor_technique: number[] }>),
-    FlyBody.load("./fly/flybody.glb", "./fly/rig.json", FLY_SCALE),
+    FlyBody.load(p, FLY_SCALE),
   ]);
   const names = fly.meta.techniques;
   const arena = new Arena($("stage"), names, TECH_COLORS);

@@ -109,9 +109,9 @@ async function fetchWithProgress(url: string, p: Progress): Promise<ArrayBuffer>
 const BASE64_DATA = (globalThis as { __LEETFLY_B64__?: boolean }).__LEETFLY_B64__ === true;
 const BASE = "./data/";
 
-async function fetchBinary(name: string, p: Progress): Promise<ArrayBuffer> {
-  if (!BASE64_DATA) return fetchWithProgress(BASE + name, p);
-  const text = new TextDecoder().decode(await fetchWithProgress(`${BASE}${name}.b64.txt`, p));
+export async function fetchBinary(name: string, p: Progress, base = BASE): Promise<ArrayBuffer> {
+  if (!BASE64_DATA) return fetchWithProgress(base + name, p);
+  const text = new TextDecoder().decode(await fetchWithProgress(`${base}${name}.b64.txt`, p));
   const raw = atob(text.trim());
   const bytes = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);

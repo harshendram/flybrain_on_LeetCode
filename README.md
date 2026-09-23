@@ -4,7 +4,8 @@ A real fruit-fly **mushroom body**, wired from electron-microscopy connectomes, 
 problems. Phase 1 is a working demo. Phase 2 asks a question the 2026 connectomes made answerable for the first
 time: **which parts of a fly's brain wiring can evolution actually use?**
 
-- Demo (3D site, private claude.ai link for now): https://claude.ai/artifact/4MYq4Ws4pdKm1zisyPK74h
+- Demo (private claude.ai previews for now): brain https://claude.ai/artifact/4MYq4Ws4pdKm1zisyPK74h ·
+  fly https://claude.ai/artifact/5EGTKhoPvhTGHhzEb5jRPe (built by `scripts/build_artifact.py`)
 - Local: `cd web && npm install && npm run dev`, or deploy it yourself (see [Deploy on Vercel](#deploy-on-vercel))
 
 ## The site
